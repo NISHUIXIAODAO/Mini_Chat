@@ -73,7 +73,7 @@ public class JWTServiceImpl {
     }
 
     /***
-     * 解析token拿到claims
+     * 解析token拿到 claims
      * @param token
      * @return
      */
