@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easychat.mapper.UserContactApplyMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.easychat.entity.DO.UserContactApply">
+        <id column="apply_id" property="applyId" />
+        <result column="apply_user_id" property="applyUserId" />
+        <result column="receive_user_id" property="receiveUserId" />
+        <result column="contact_type" property="contactType" />
+        <result column="contact_id" property="contactId" />
+        <result column="last_apply_time" property="lastApplyTime" />
+        <result column="status" property="status" />
+        <result column="apply_info" property="applyInfo" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        apply_id, apply_user_id, receive_user_id, contact_type, contact_id, last_apply_time, status, apply_info
+    </sql>
+
+</mapper>
