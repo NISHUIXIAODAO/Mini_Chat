@@ -103,7 +103,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
             redisService.addUserContactBatch(groupKey,groupIdList);
         }
 
-        return ResultVo.success("token:" + token);
+        return ResultVo.success(token);
     }
 
     /***

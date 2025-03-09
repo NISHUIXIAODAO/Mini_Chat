@@ -144,6 +144,13 @@ public class ChannelContextUtils {
         }
         group.add(channel);
     }
+
+    public void addUser2Group(Integer userId , Integer groupId){
+        Channel channel = User_Context_Map.get(userId);
+        add2Group(groupId, channel);
+    }
+
+
     public void removeContext(Channel channel){
         Attribute<Integer> attribute = channel.attr(AttributeKey.valueOf(channel.id().toString()));
         Integer userId = attribute.get();
