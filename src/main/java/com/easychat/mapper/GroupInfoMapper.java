@@ -18,6 +18,6 @@ import org.apache.ibatis.annotations.Select;
 
 public interface GroupInfoMapper extends BaseMapper<GroupInfo> {
 
-    @Select("select * from group_info where user_id = #{userId} and group_name = #{groupName}")
+    @Select("select * from group_info where group_owner_id = #{userId} and group_name = #{groupName}")
     GroupInfo getByNameAndOwnerId(@Param("userId") Integer userId , @Param("groupName") String groupName);
 }

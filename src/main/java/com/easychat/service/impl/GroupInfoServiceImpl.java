@@ -84,6 +84,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
                 .createTime(LocalDateTime.now())
                 .groupNotice(setGroupDTO.getGroupNotice())
                 .joinType(setGroupDTO.getJoinType())
+                .status(true)
                 .build();
         groupInfoMapper.insert(group);
 
@@ -115,7 +116,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
         ChatSessionUser chatSessionUser = new ChatSessionUser();
         chatSessionUser.setUserId(groupInfo.getGroupOwnerId());
         chatSessionUser.setContactId(groupInfo.getGroupId());
-        chatSessionUser.setContactName(group.getGroupName());
+        chatSessionUser.setContactName(groupInfo.getGroupName());
         chatSessionUser.setSessionId(sessionId);
         chatSessionUserMapper.insert(chatSessionUser);
 
@@ -133,7 +134,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
         //将新建群组联系人加入redis中
         redisService.addUserContact(redisService.generateRedisKey(groupInfo.getGroupOwnerId() , CONTACT_TYPE_GROUPS) ,groupInfo.getGroupId());
         //将联系人通道添加到群组通道
-        channelContextUtils.addUser2Group(groupInfo.getGroupOwnerId(), group.getGroupId());
+        channelContextUtils.addUser2Group(groupInfo.getGroupOwnerId(), groupInfo.getGroupId());
 
         //发送ws消息
         chatSessionUser.setLastMessage(GROUP_CREATE.getInitMessage());
@@ -146,6 +147,6 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
         messageHandler.sendMessage(messageSendDTO);
 
 
-        return ResultVo.success("注册成功");
+        return ResultVo.success("创建群聊成功");
     }
 }
