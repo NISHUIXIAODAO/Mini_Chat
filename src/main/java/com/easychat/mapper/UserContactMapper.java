@@ -2,6 +2,7 @@ package com.easychat.mapper;
 
 import com.easychat.entity.DO.UserContact;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.easychat.enums.FriendStatusEnum;
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDateTime;
@@ -32,4 +33,7 @@ public interface UserContactMapper extends BaseMapper<UserContact> {
                     @Param("createTime") LocalDateTime createTime,
                     @Param("status") Integer status,
                     @Param("lastUpdateTime") LocalDateTime lastUpdateTime);
+
+    @Select("select count(*) from user_contact where contact_id = #{groupId} and status = #{status}")
+    Integer getGroupCountByContactIdAndStatus(@Param("groupId") Integer groupId,@Param("status") Integer status);
 }

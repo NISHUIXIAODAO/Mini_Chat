@@ -22,7 +22,7 @@ import java.util.List;
 @Mapper
 public interface UserContactApplyMapper extends BaseMapper<UserContactApply> {
     @Select("select * from user_contact_apply where apply_user_id = #{applyUserId} and receive_user_id = #{receiveUserId} and contact_id = #{contactId}")
-    UserContactApply getByApplyIdAddReceiveIdAddContactId(@Param("applyUserId") Integer applyUserId,
+    UserContactApply getByApplyUserIdAddReceiveUserIdAddContactId(@Param("applyUserId") Integer applyUserId,
                                                           @Param("receiveUserId") Integer receiveUserId,
                                                           @Param("contactId") Integer contactId);
 
