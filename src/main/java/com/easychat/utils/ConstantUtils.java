@@ -25,5 +25,16 @@ public class ConstantUtils {
     public static final int CONTACT_TYPE_GROUPS = 1;
 
 
+    public static String cleanHtmlTag(String content){
+        if(content.isEmpty()){
+            return content;
+        }
+        content = content.replace("<","&lt;");
+        content = content.replace("\r\n","<br>");
+        content = content.replace("\n","<br>");
+        return  content;
+    }
+
+
 
 }

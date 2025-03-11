@@ -14,7 +14,7 @@ import com.easychat.mapper.ChatMessageMapper;
 import com.easychat.mapper.ChatSessionUserMapper;
 import com.easychat.mapper.UserContactApplyMapper;
 import com.easychat.mapper.UserInfoMapper;
-import com.easychat.service.RedisService;
+import com.easychat.service.IRedisService;
 import com.easychat.utils.JsonUtils;
 import io.netty.channel.Channel;
 import io.netty.channel.group.ChannelGroup;
@@ -38,7 +38,7 @@ import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
 @Slf4j
 public class ChannelContextUtils {
     @Autowired
-    private RedisService redisService;
+    private IRedisService redisService;
     @Autowired
     private UserInfoMapper userInfoMapper;
     @Autowired

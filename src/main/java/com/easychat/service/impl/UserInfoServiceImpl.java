@@ -6,11 +6,8 @@ import com.easychat.entity.DO.UserInfo;
 import com.easychat.entity.DTO.request.LoginDTO;
 import com.easychat.entity.DTO.request.RegisterDTO;
 import com.easychat.mapper.UserInfoMapper;
-import com.easychat.service.DatasetService;
-import com.easychat.service.IUserContactService;
-import com.easychat.service.IUserInfoService;
+import com.easychat.service.*;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.easychat.service.RedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,13 +41,13 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     @Autowired
     private JavaMailSenderImpl mailSender;
     @Autowired
-    private JWTServiceImpl jwtService;
+    private IJWTService jwtService;
     @Autowired
     private DatasetService datasetService;
     @Autowired
     private UserContactServiceImpl userContactService;
     @Autowired
-    private RedisService redisService;
+    private IRedisService redisService;
     @Autowired
     private IUserContactService iUserContactService;
 

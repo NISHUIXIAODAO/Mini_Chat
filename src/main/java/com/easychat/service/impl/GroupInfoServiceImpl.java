@@ -5,12 +5,11 @@ import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.entity.DTO.request.SetGroupDTO;
 import com.easychat.enums.MessageStatusEnum;
-import com.easychat.enums.MessageTypeEnum;
 import com.easychat.mapper.*;
 import com.easychat.service.IGroupInfoService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.easychat.service.RedisService;
-import com.easychat.utils.ConstantUtils;
+import com.easychat.service.IJWTService;
+import com.easychat.service.IRedisService;
 import com.easychat.utils.CopyTools;
 import com.easychat.webSocket.ChannelContextUtils;
 import com.easychat.webSocket.MessageHandler;
@@ -25,7 +24,6 @@ import java.time.LocalDateTime;
 
 import static com.easychat.enums.FriendStatusEnum.FRIEND_YES;
 import static com.easychat.enums.MessageTypeEnum.GROUP_CREATE;
-import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_FRIEND;
 import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
 import static com.easychat.utils.SessionIdUtils.generateSessionId;
 
@@ -42,7 +40,7 @@ import static com.easychat.utils.SessionIdUtils.generateSessionId;
 @RequiredArgsConstructor
 public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo> implements IGroupInfoService {
     @Autowired
-    private JWTServiceImpl jwtService;
+    private IJWTService jwtService;
     @Autowired
     private UserContactMapper userContactMapper;
     @Autowired
@@ -50,13 +48,11 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
     @Autowired
     private ChatSessionUserMapper chatSessionUserMapper;
     @Autowired
-    private RedisService redisService;
+    private IRedisService redisService;
     @Autowired
     private ChannelContextUtils channelContextUtils;
     @Autowired
     private ChatMessageMapper chatMessageMapper;
-    @Autowired
-    private CopyTools copyTools;
     @Autowired
     private MessageHandler messageHandler;
 
@@ -141,7 +137,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
         chatSessionUser.setLastReceiveTime(System.currentTimeMillis());
         chatSessionUser.setMemberCount(1);
 
-        MessageSendDTO messageSendDTO = copyTools.copy(chatMassage);
+        MessageSendDTO messageSendDTO = CopyTools.copy(chatMassage);
         messageSendDTO.setExtendData(chatSessionUser);
         messageSendDTO.setLastMessage(chatSessionUser.getLastMessage());
         messageHandler.sendMessage(messageSendDTO);

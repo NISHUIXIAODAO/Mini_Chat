@@ -10,23 +10,20 @@ import com.easychat.enums.MessageStatusEnum;
 import com.easychat.enums.MessageTypeEnum;
 import com.easychat.hander.GlobalExceptionHandler;
 import com.easychat.mapper.*;
+import com.easychat.service.IJWTService;
+import com.easychat.service.IRedisService;
 import com.easychat.service.IUserContactService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.easychat.service.RedisService;
 import com.easychat.utils.CopyTools;
-import com.easychat.utils.SessionIdUtils;
 import com.easychat.webSocket.ChannelContextUtils;
 import com.easychat.webSocket.MessageHandler;
-import io.swagger.models.auth.In;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.catalina.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -58,7 +55,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
     @Autowired
     private ChatMessageMapper chatMessageMapper;
     @Autowired
-    private JWTServiceImpl jwtService;
+    private IJWTService jwtService;
     @Autowired
     private UserInfoMapper userInfoMapper;
     @Autowired
@@ -66,9 +63,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
     @Autowired
     private MessageHandler messageHandler;
     @Autowired
-    private RedisService redisService;
-    @Autowired
-    private CopyTools copyTools;
+    private IRedisService redisService;
     @Autowired
     private GroupInfoMapper groupInfoMapper;
     @Autowired
@@ -326,6 +321,13 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
                         LocalDateTime.now(),
                         FRIEND_YES.getCode(),
                         LocalDateTime.now());
+                userContactMapper.insertContact(
+                        receiveUserId,
+                        applyUserId,
+                        contactType,
+                        LocalDateTime.now(),
+                        FRIEND_YES.getCode(),
+                        LocalDateTime.now());
 
                 //同意好友申请后需要将新好友放入Redis中friendIdList中
                 String receiveUserKey = redisService.generateRedisKey(receiveUserId,CONTACT_TYPE_FRIEND);
@@ -376,7 +378,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
         }
         //创建群聊sessionId
         if(contactType == CONTACT_TYPE_GROUPS){
-            sessionId = generateSessionId(applyUserId,receiveUserId);
+            sessionId = generateSessionId(applyUserId,groupId);
         }
 
         if(contactType == CONTACT_TYPE_FRIEND){
@@ -429,7 +431,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
             chatMessage.setContactType(CONTACT_TYPE_FRIEND);
             chatMessageMapper.insert(chatMessage);
 
-            MessageSendDTO messageSendDTO = copyTools.copy(chatMessage);
+            MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
             //发送给receive用户
             messageHandler.sendMessage(messageSendDTO);
 
@@ -478,8 +480,8 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
             //将联系人通道添加到群组通道
             channelContextUtils.addUser2Group(applyUserId , groupInfo.getGroupId());
             //发送群消息
-            MessageSendDTO messageSendDTO = copyTools.copy(chatMessage);
-            messageSendDTO.setContactId(groupId);//// TODO: 2025/3/10 receiveUserId ->groupId ?
+            MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
+            messageSendDTO.setContactId(groupId);
             //获取群 人数
             Integer groupMemberCount = userContactMapper.getGroupCountByContactIdAndStatus(groupId, FRIEND_YES.getCode());
             messageSendDTO.setMemberCount(groupMemberCount);
