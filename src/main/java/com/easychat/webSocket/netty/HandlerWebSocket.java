@@ -1,6 +1,6 @@
 package com.easychat.webSocket.netty;
 
-import com.easychat.service.RedisService;
+import com.easychat.service.IRedisService;
 import com.easychat.service.impl.JWTServiceImpl;
 import com.easychat.webSocket.ChannelContextUtils;
 import io.netty.channel.Channel;
@@ -25,7 +25,7 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
     @Resource
     private JWTServiceImpl jwtService;
     @Autowired
-    private RedisService redisService;
+    private IRedisService redisService;
     @Autowired
     private ChannelContextUtils channelContextUtils;
 

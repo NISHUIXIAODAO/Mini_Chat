@@ -2,6 +2,11 @@ package com.easychat.service;
 
 import com.easychat.entity.DO.ChatMessage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.easychat.entity.DTO.request.ChatSendMessageDTO;
+import com.easychat.entity.DTO.request.MessageSendDTO;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * <p>
@@ -13,4 +18,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IChatMessageService extends IService<ChatMessage> {
 
+    MessageSendDTO saveMessage(ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response);
 }

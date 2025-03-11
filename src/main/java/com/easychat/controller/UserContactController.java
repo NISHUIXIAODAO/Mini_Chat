@@ -1,12 +1,18 @@
 package com.easychat.controller;
 
+import com.easychat.entity.DTO.request.ApplyGroupAddDTO;
+import com.easychat.entity.DTO.request.DisposeApplyDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.service.IUserContactService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * <p>
@@ -24,20 +30,30 @@ public class UserContactController {
     private IUserContactService iUserContactService;
 
 
-    @PostMapping("/applyAdd")
-    public ResultVo<Object> applyAdd(String token, Integer contactId, String applyInfo){
+    @PostMapping("/applyFriendAdd")
+    public ResultVo<Object> applyFriendAdd(String token, Integer contactId, String applyInfo){
         try {
-            return iUserContactService.applyAdd(token,contactId,applyInfo);
+            return iUserContactService.applyFriendAdd(token,contactId,applyInfo);
         }catch (Exception e){
             log.error("错误：{}",e);
         }
-        return ResultVo.failed("UserContactController-applyAdd 发生错误");
+        return ResultVo.failed("UserContactController-applyFriendAdd 发生错误");
+    }
+
+    @PostMapping("/applyGroupAdd")
+    public ResultVo<Object> applyGroupAdd(@RequestBody ApplyGroupAddDTO applyGroupAddDTO , HttpServletRequest request, HttpServletResponse response){
+        try {
+            return iUserContactService.applyGroupAdd(applyGroupAddDTO,request,response);
+        }catch (Exception e){
+            log.error("错误：{}",e);
+        }
+        return ResultVo.failed("UserContactController-applyGroupAdd 发生错误");
     }
 
     @PostMapping("/disposeApply")
-    public ResultVo<Object> disposeApply(Integer applyUserId , String token , Integer status){
+    public ResultVo<Object> disposeApply(@RequestBody DisposeApplyDTO disposeApplyDTO , HttpServletRequest request, HttpServletResponse response){
         try{
-            return iUserContactService.disposeApply(applyUserId,token,status);
+            return iUserContactService.disposeApply(disposeApplyDTO, request, response);
         }catch (Exception e){
             log.error("错误：{}",e);
         }

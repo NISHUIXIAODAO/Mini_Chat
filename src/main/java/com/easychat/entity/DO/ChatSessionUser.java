@@ -45,5 +45,15 @@ public class ChatSessionUser implements Serializable {
      */
     private Integer memberCount;
 
+    /***
+     * 最后一条消息
+     */
+    private String lastMessage;
+
+    /***
+     * 最后一条消息时间
+     */
+    private Long LastReceiveTime;
+
 
 }

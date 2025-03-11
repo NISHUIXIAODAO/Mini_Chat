@@ -1,8 +1,13 @@
 package com.easychat.service;
 
+import com.easychat.entity.DTO.request.ApplyGroupAddDTO;
+import com.easychat.entity.DTO.request.DisposeApplyDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.entity.DO.UserContact;
 import com.baomidou.mybatisplus.extension.service.IService;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * <p>
@@ -15,6 +20,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 public interface IUserContactService extends IService<UserContact> {
 
     void addContact4Robot(Integer userId);
-    ResultVo applyAdd(String token, Integer contactId, String applyInfo);
-    ResultVo disposeApply(Integer applyUserId , String token , Integer status);
+    ResultVo<Object> applyFriendAdd(String token, Integer contactId, String applyInfo);
+    ResultVo<Object> disposeApply(DisposeApplyDTO disposeApplyDTO , HttpServletRequest request, HttpServletResponse response);
+    ResultVo<Object> applyGroupAdd(ApplyGroupAddDTO applyGroupAddDTO, HttpServletRequest request, HttpServletResponse response);
 }

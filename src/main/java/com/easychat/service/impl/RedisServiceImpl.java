@@ -1,6 +1,6 @@
-package com.easychat.service;
+package com.easychat.service.impl;
 
-import com.easychat.utils.ConstantUtils;
+import com.easychat.service.IRedisService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -14,7 +14,7 @@ import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
 
 @Service
 @Slf4j
-public class RedisService {
+public class RedisServiceImpl implements IRedisService {
 
     @Autowired
     private RedisTemplate redisTemplate;

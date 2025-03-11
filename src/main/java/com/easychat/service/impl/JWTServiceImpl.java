@@ -1,6 +1,8 @@
 package com.easychat.service.impl;
 
 import com.easychat.service.DatasetService;
+import com.easychat.service.IJWTService;
+import com.easychat.service.IUserInfoService;
 import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +16,7 @@ import java.util.Map;
 
 @Component
 @Slf4j
-public class JWTServiceImpl {
+public class JWTServiceImpl implements IJWTService {
     @Autowired
     private DatasetService datasetService;
 
@@ -38,7 +40,7 @@ public class JWTServiceImpl {
     }
 
     /***
-     * 验证token的有效性
+     * 验证token的有效性 todo
      * @param token
      * @return
      */

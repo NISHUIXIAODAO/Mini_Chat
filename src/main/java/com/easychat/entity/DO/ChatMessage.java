@@ -83,7 +83,7 @@ public class ChatMessage implements Serializable {
     /**
      * 文件类型
      */
-    private Boolean fileType;
+    private Integer fileType;
 
     /**
      * 状态：0-正在发送，1-已发送

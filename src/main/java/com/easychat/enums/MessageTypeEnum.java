@@ -33,9 +33,12 @@ public enum MessageTypeEnum {
     public String getInitMessage() {
         return initMessage;
     }
-
     public String getDesc() {
         return desc;
     }
+
+//    public MessageTypeEnum getByType(Integer type){
+//
+//    }
 }
 
