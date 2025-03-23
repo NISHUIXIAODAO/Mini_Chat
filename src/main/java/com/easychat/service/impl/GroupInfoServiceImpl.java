@@ -5,6 +5,7 @@ import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.entity.DTO.request.SetGroupDTO;
 import com.easychat.enums.MessageStatusEnum;
+import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.mapper.*;
 import com.easychat.service.IGroupInfoService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -12,7 +13,6 @@ import com.easychat.service.IJWTService;
 import com.easychat.service.IRedisService;
 import com.easychat.utils.CopyTools;
 import com.easychat.webSocket.ChannelContextUtils;
-import com.easychat.webSocket.MessageHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,7 +54,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
     @Autowired
     private ChatMessageMapper chatMessageMapper;
     @Autowired
-    private MessageHandler messageHandler;
+    private KafkaMessageProducer kafkaMessageProducer;
 
     private final GroupInfoMapper groupInfoMapper;
 
@@ -140,7 +140,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
         MessageSendDTO messageSendDTO = CopyTools.copy(chatMassage);
         messageSendDTO.setExtendData(chatSessionUser);
         messageSendDTO.setLastMessage(chatSessionUser.getLastMessage());
-        messageHandler.sendMessage(messageSendDTO);
+        kafkaMessageProducer.sendMessage(messageSendDTO);
 
 
         return ResultVo.success("创建群聊成功");

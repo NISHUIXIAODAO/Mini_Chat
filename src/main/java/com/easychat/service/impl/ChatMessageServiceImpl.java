@@ -6,6 +6,7 @@ import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.enums.FriendStatusEnum;
 import com.easychat.enums.MessageTypeEnum;
 import com.easychat.hander.GlobalExceptionHandler;
+import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.mapper.ChatMessageMapper;
 import com.easychat.mapper.ChatSessionMapper;
 import com.easychat.mapper.UserContactMapper;
@@ -16,7 +17,6 @@ import com.easychat.service.IJWTService;
 import com.easychat.service.IRedisService;
 import com.easychat.utils.CopyTools;
 import com.easychat.utils.SessionIdUtils;
-import com.easychat.webSocket.MessageHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -54,7 +54,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     @Autowired
     private ChatMessageMapper chatMessageMapper;
     @Autowired
-    private MessageHandler messageHandler;
+    private KafkaMessageProducer kafkaMessageProducer;
 
     @Override
     public MessageSendDTO saveMessage(ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response) {
@@ -122,7 +122,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         chatMessageMapper.insert(chatMessage);
 
         MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
-        messageHandler.sendMessage(messageSendDTO);
+        kafkaMessageProducer.sendMessage(messageSendDTO);
 
         return messageSendDTO;
 

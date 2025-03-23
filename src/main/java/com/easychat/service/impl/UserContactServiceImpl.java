@@ -9,6 +9,7 @@ import com.easychat.enums.FriendStatusEnum;
 import com.easychat.enums.MessageStatusEnum;
 import com.easychat.enums.MessageTypeEnum;
 import com.easychat.hander.GlobalExceptionHandler;
+import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.mapper.*;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IRedisService;
@@ -16,7 +17,6 @@ import com.easychat.service.IUserContactService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.easychat.utils.CopyTools;
 import com.easychat.webSocket.ChannelContextUtils;
-import com.easychat.webSocket.MessageHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -61,7 +61,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
     @Autowired
     private UserContactApplyMapper userContactApplyMapper;
     @Autowired
-    private MessageHandler messageHandler;
+    private KafkaMessageProducer kafkaMessageProducer;
     @Autowired
     private IRedisService redisService;
     @Autowired
@@ -208,7 +208,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
                 messageSendDTO.setMessageType(MessageTypeEnum.CONTACT_APPLY.getType());
                 messageSendDTO.setMessageContent(applyInfo);
                 messageSendDTO.setContactId(receiveUserId);
-                messageHandler.sendMessage(messageSendDTO);
+                kafkaMessageProducer.sendMessage(messageSendDTO);
             }
 
             return ResultVo.success("申请好友成功");
@@ -283,7 +283,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
             messageSendDTO.setMessageType(MessageTypeEnum.CONTACT_APPLY.getType());
             messageSendDTO.setMessageContent(applyGroupAddDTO.getApplyInfo());
             messageSendDTO.setContactId(groupOwnerId);
-            messageHandler.sendMessage(messageSendDTO);
+            kafkaMessageProducer.sendMessage(messageSendDTO);
         }
 
         return ResultVo.success("申请加入群聊成功");
@@ -433,13 +433,13 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
 
             MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
             //发送给receive用户
-            messageHandler.sendMessage(messageSendDTO);
+            kafkaMessageProducer.sendMessage(messageSendDTO);
 
             messageSendDTO.setMessageType(MessageTypeEnum.ADD_FRIEND_SELF.getType());
             messageSendDTO.setContactId(applyUserId);
             messageSendDTO.setExtendData(receiveUser);
 
-            messageHandler.sendMessage(messageSendDTO);
+            kafkaMessageProducer.sendMessage(messageSendDTO);
 
         } else {
             //加入群组
@@ -487,7 +487,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
             messageSendDTO.setMemberCount(groupMemberCount);
             messageSendDTO.setContactName(groupInfo.getGroupName());
             //发消息
-            messageHandler.sendMessage(messageSendDTO);
+            kafkaMessageProducer.sendMessage(messageSendDTO);
         }
 
         return ResultVo.success("处理好友申请成功");
