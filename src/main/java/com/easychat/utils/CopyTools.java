@@ -4,11 +4,14 @@ import com.easychat.entity.DO.ChatMessage;
 import com.easychat.entity.DTO.request.MessageSendDTO;
 import org.springframework.stereotype.Component;
 
+/***
+ * 此工具类目的是，将 chatMessage复制给 messageSendDTO
+ * chatMessage负责存入数据库，messageSendDTO负责发送消息
+ */
 @Component
 public class CopyTools {
     public static MessageSendDTO copy(ChatMessage chatMessage){
         MessageSendDTO messageSendDTO = new MessageSendDTO();
-
         messageSendDTO.setSessionId(chatMessage.getSessionId());
         messageSendDTO.setMessageType(chatMessage.getMessageType());
         messageSendDTO.setMessageContent(chatMessage.getMessageContent());
@@ -17,7 +20,6 @@ public class CopyTools {
         messageSendDTO.setContactId(chatMessage.getContactId());
         messageSendDTO.setSendTime(chatMessage.getSendTime());
         messageSendDTO.setContactType(chatMessage.getContactType());
-
         return messageSendDTO;
     }
 }

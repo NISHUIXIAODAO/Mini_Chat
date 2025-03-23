@@ -7,6 +7,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import javax.annotation.Resource;
 
+/***
+ * 全局请求拦截器
+ */
 @Configuration
 public class InterceptorConfig implements WebMvcConfigurer {
     @Resource

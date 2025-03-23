@@ -10,6 +10,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+/***
+ * 拦截方法类
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
