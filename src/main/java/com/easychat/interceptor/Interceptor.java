@@ -28,7 +28,7 @@ public class Interceptor implements HandlerInterceptor {
         StringBuffer requestURL = request.getRequestURL();
         System.out.println("访问接口：" + requestURL);
         //拿到token
-        String token = request.getHeader("token");
+        String token = request.getHeader("authorization");
         log.info("拿到的token为：{}",token);
         if(token == null){
             log.error("用户未登录");

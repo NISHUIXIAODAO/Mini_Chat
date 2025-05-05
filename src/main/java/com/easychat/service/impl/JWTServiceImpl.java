@@ -1,15 +1,13 @@
 package com.easychat.service.impl;
 
-import com.easychat.service.DatasetService;
+import com.easychat.entity.DO.UserInfo;
+import com.easychat.mapper.UserInfoMapper;
 import com.easychat.service.IJWTService;
-import com.easychat.service.IUserInfoService;
 import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
-import javax.sql.DataSource;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,12 +16,12 @@ import java.util.Map;
 @Slf4j
 public class JWTServiceImpl implements IJWTService {
     @Autowired
-    private DatasetService datasetService;
+    private UserInfoMapper userInfoMapper;
 
     private final String JWT_Token = "gdsufgdouwefghoiwehfoliewhuiotrhiovhewiofherwiuhgipwerhbvierhjh";
 
     /***
-     * 生成token
+     * 生成 token
      * @param userId
      * @return
      */
@@ -40,7 +38,7 @@ public class JWTServiceImpl implements IJWTService {
     }
 
     /***
-     * 验证token的有效性 todo
+     * 验证 token的有效性 todo
      * @param token
      * @return
      */
@@ -75,7 +73,7 @@ public class JWTServiceImpl implements IJWTService {
     }
 
     /***
-     * 解析token拿到 claims
+     * 解析 token拿到 claims
      * @param token
      * @return
      */
@@ -98,7 +96,7 @@ public class JWTServiceImpl implements IJWTService {
         return null;
     }
     /***
-     * 通过token查询用户ID，并进行数据库校验
+     * 通过 token查询用户 ID，并进行数据库校验
      * @param token
      * @return
      */
@@ -110,9 +108,7 @@ public class JWTServiceImpl implements IJWTService {
         //解析token
         int userId = getUserId(token);
         //查询用户是否存在数据库中
-        if(!datasetService.userExists(userId)){
-            return false;
-        }
-        return true;
+        UserInfo user = userInfoMapper.getUserById(userId);
+        return user != null;
     }
 }

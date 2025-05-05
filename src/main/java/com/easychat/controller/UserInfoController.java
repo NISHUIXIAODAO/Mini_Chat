@@ -19,7 +19,7 @@ import javax.servlet.http.HttpServletResponse;
  * 用户信息 前端控制器
  * </p>
  *
- * @author scj
+ * @author may
  * @since 2025-02-26
  */
 @RestController
@@ -61,8 +61,6 @@ public class UserInfoController {
         }
         return ResultVo.failed("发生错误：验证码发送失败");
     }
-
-
 
     @GetMapping("/test")
     public ResultVo<Object> test(){

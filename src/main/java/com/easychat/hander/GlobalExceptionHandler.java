@@ -95,7 +95,8 @@ public class GlobalExceptionHandler {
         JSON_TO_LIST_FAILED(506,"convertJsonArrayToList异常"),
 
         CODE_600(600,"chatMessage is null or not must to send "),
-        CODE_BLACK(110,"对方已拉黑你");
+        CODE_BLACK(901,"对方已拉黑你"),
+        CODE_UNEXIST(902,"你们还不是好友");
 
 
         private final int code;

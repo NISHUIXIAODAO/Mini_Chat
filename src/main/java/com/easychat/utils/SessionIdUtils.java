@@ -7,7 +7,7 @@ import java.util.Arrays;
 
 public class SessionIdUtils {
     /***
-     * 生成SessionId
+     * 生成 SessionId
      * @param userId1
      * @param userId2
      * @return
@@ -18,7 +18,7 @@ public class SessionIdUtils {
         return md5(userIds[0] + "_" + userIds[1]);
     }
 
-    private static String md5(String input) {
+    public static String md5(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] bytes = md.digest(input.getBytes());

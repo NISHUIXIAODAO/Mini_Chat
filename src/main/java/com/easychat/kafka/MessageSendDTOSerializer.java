@@ -7,6 +7,9 @@ import org.apache.kafka.common.serialization.Serializer;
 
 import java.util.Map;
 
+/****
+ * kafka序列化器
+ */
 public class MessageSendDTOSerializer implements Serializer<MessageSendDTO> {
 
     private final ObjectMapper objectMapper = new ObjectMapper();

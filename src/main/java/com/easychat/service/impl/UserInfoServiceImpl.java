@@ -19,9 +19,12 @@ import org.springframework.stereotype.Service;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+
+import static com.easychat.utils.SessionIdUtils.md5;
 
 /**
  * <p>
@@ -43,13 +46,9 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     @Autowired
     private IJWTService jwtService;
     @Autowired
-    private DatasetService datasetService;
-    @Autowired
-    private UserContactServiceImpl userContactService;
-    @Autowired
     private IRedisService redisService;
     @Autowired
-    private IUserContactService iUserContactService;
+    private IUserContactService userContactService;
 
 
     /***
@@ -63,34 +62,31 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     public ResultVo<Object> login(LoginDTO loginDTO, HttpServletResponse response, HttpServletRequest request) {
 
         //查询用户是否存在
-        QueryWrapper<UserInfo> userInfoQueryWrapper = new QueryWrapper<>();
-        userInfoQueryWrapper.eq("email", loginDTO.getEmail());
-        UserInfo userInfo = userInfoMapper.selectOne(userInfoQueryWrapper);
-        if (userInfo == null) {
+        //根据邮箱查询用户ID
+        Integer userId = userInfoMapper.getUserIdByEmail(loginDTO.getEmail());
+        if (userId == null) {
             return ResultVo.failed("没有此用户");
         }
         //校验密码
-        userInfoQueryWrapper.eq("email", loginDTO.getEmail()).eq("password", loginDTO.getPassword());
-        UserInfo userInfo1 = userInfoMapper.selectOne(userInfoQueryWrapper);
-        if(userInfo1 == null){
-            return ResultVo.failed();
+        String password = userInfoMapper.getPasswordById(userId);
+        if(password == null || !password.equals(md5(loginDTO.getPassword()))){
+            return ResultVo.failed("密码不正确" + md5(loginDTO.getPassword()));
         }
-        //生成jwt
-        //根据邮箱查询用户ID
-        UserInfo user = datasetService.getUserByEmail(loginDTO.getEmail());
-        String token = jwtService.generateToken(user.getUserId());
 
-        Long lastHeartBeat = redisService.getUserHeartBeat(user.getUserId());
+        //生成jwt
+        String token = jwtService.generateToken(userId);
+
+        Long lastHeartBeat = redisService.getUserHeartBeat(userId);
         if(lastHeartBeat != null){
             return ResultVo.failed("用户已在别处登录");
         }
 
         //查询联系人(朋友)
-        List<Integer> friendIdList = userContactService.getFriendIdList(user.getUserId());
-        List<Integer> groupIdList = userContactService.getGroupIdList(user.getUserId());
+        List<Integer> friendIdList = userContactService.getFriendIdList(userId);
+        List<Integer> groupIdList = userContactService.getGroupIdList(userId);
         // 定义不同的键名来存储好友和群组 ID
-        String friendKey = "user:" + user.getUserId()  + ":friends";
-        String groupKey = "user:" + user.getUserId()  + ":groups";
+        String friendKey = "user:" + userId  + ":friends";
+        String groupKey = "user:" + userId  + ":groups";
 
         //将联系人列表存入redis
         if(!friendIdList.isEmpty()){
@@ -100,7 +96,13 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
             redisService.addUserContactBatch(groupKey,groupIdList);
         }
 
-        return ResultVo.success(token);
+        String nickName = userInfoMapper.getNickNameByUserId(userId);
+        HashMap<String, Object> userInfo = new HashMap<>();
+        userInfo.put("token", token);
+        userInfo.put("userId", userId);
+        userInfo.put("nickName", nickName);
+
+        return ResultVo.success(userInfo);
     }
 
     /***
@@ -113,16 +115,15 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     @Override
     public ResultVo<Object> register(RegisterDTO registerDTO, HttpServletResponse response, HttpServletRequest request) {
         //查询用户是否存在
-        QueryWrapper<UserInfo> userInfoQueryWrapper = new QueryWrapper<>();
-        userInfoQueryWrapper.eq("email", registerDTO.getEmail());
-        UserInfo userInfo = userInfoMapper.selectOne(userInfoQueryWrapper);
-        if (userInfo != null) {
+        //根据邮箱查询用户ID
+        Integer userId = userInfoMapper.getUserIdByEmail(registerDTO.getEmail());
+        if (userId != null) {
             return ResultVo.failed("用户已存在");
         }
         //检验参数是否合法
         String regex = "\\w+@\\w+(\\.\\w{2,3})*\\.\\w{2,3}";
         if (!registerDTO.getEmail().matches(regex)) {
-            return ResultVo.failed("格式不正确");
+            return ResultVo.failed("邮箱格式不正确");
         }
         //校验验证码
         String code = redisService.verifyCode(registerDTO.getEmail());
@@ -139,7 +140,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
                 .nickName(registerDTO.getNickName())
                 .joinType(registerDTO.getJoinType())
                 .sex(registerDTO.getSex())
-                .password(registerDTO.getPassword())
+                .password(md5(registerDTO.getPassword()))
                 .personalSignature(null)
                 .status(null)
                 .createTime(LocalDateTime.now())
@@ -150,9 +151,9 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
                 .build();
         userInfoMapper.insert(user);
         //获取注册用户的ID
-        Integer userId = userInfoMapper.getUserIdByEmail(registerDTO.getEmail());
+        userId = userInfoMapper.getUserIdByEmail(registerDTO.getEmail());
         //创建机器人好友
-        iUserContactService.addContact4Robot(userId);
+        userContactService.addContact4Robot(userId);
 
         return ResultVo.success("注册成功");
     }
@@ -166,18 +167,17 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
      */
     @Override
     public ResultVo sendCode(String email, HttpServletResponse response, HttpServletRequest request) {
-        System.out.println("开始发送验证码");
 
         String code = generateCode();
+
         SimpleMailMessage simpleMailMessage = new SimpleMailMessage();
-        simpleMailMessage.setSubject("注册XX验证码");
+        simpleMailMessage.setSubject("注册 Mini_Chat 验证码");
         simpleMailMessage.setText(code);
         simpleMailMessage.setTo(email);
         simpleMailMessage.setFrom("mamm127323@163.com");
         mailSender.send(simpleMailMessage);
-        //将生成的code存到redis里
-        //过期时间5分钟
-        redisService.setCode(email, code,5, TimeUnit.MINUTES);
+        //将生成的code存到redis里  过期时间1分钟
+        redisService.setCode(email, code,1, TimeUnit.MINUTES);
 
         return ResultVo.success("发送成功");
     }

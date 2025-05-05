@@ -35,9 +35,11 @@ public interface UserInfoMapper extends BaseMapper<UserInfo> {
     @Select("select join_type from user_info where user_id = #{userId}")
     Integer getUserJoinType(@Param("userId") Integer userId);
 
-    @Select("select * from user_info where user_id = #{userId}")
-    UserInfo getByUserId(@Param("userId") Integer userId);
-
     @Select("select nick_name from user_info where user_id = #{userId}")
     String getNickNameByUserId(@Param("userId") Integer userId);
+
+    @Select("select password from user_info where user_id = #{userId}")
+    String getPasswordById(@Param("userId") Integer userId);
+    @Select("select last_off_time from user_info where user_id = #{userId}")
+    Long getLastOffTimeById(@Param("userId") Integer userId);
 }

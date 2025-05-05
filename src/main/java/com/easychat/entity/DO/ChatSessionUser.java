@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -16,6 +17,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @TableName("chat_session_user")
+@Accessors(chain = true)
 public class ChatSessionUser implements Serializable {
 
     private static final long serialVersionUID = 1L;

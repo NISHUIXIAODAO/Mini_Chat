@@ -23,12 +23,12 @@ public class ChatController {
     private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
 
     @Autowired
-    private IChatMessageService iChatMessageService;
+    private IChatMessageService chatMessageService;
 
     @RequestMapping("/sendMessage")
     public ResultVo<Object> sendMessage(@RequestBody ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response){
         try{
-            MessageSendDTO messageSendDTO = iChatMessageService.saveMessage(chatSendMessageDTO,request,response);
+            MessageSendDTO messageSendDTO = chatMessageService.saveMessage(chatSendMessageDTO,request,response);
             return ResultVo.success("发送消息成功" + messageSendDTO);
         } catch (Exception e){
             return ResultVo.failed("发送消息失败:" + e);

@@ -1,6 +1,7 @@
 package com.easychat.test;
 
 
+import com.easychat.entity.DTO.request.LoginDTO;
 import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
