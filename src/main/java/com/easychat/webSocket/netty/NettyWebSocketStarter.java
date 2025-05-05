@@ -34,13 +34,17 @@ public class NettyWebSocketStarter {
     @Autowired
     private HandlerHeartBeat handlerHeartBeat;
 
+    /***
+     * 异步启动 Netty
+     */
     @Async
     public void startNetty(){
         try{
             ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(bossGroup,workGroup)
                     .channel(NioServerSocketChannel.class)//声明服务端使用 Java NIO 模型
-                    .handler(new LoggingHandler(LogLevel.DEBUG)).childHandler(new ChannelInitializer() {
+                    .handler(new LoggingHandler(LogLevel.DEBUG))
+                    .childHandler(new ChannelInitializer() {
                         @Override
                         protected void initChannel(Channel channel) throws Exception {
                             //添加业务处理器
@@ -53,7 +57,7 @@ public class NettyWebSocketStarter {
                                     //readerIdleTime:读超时事件，服务器一段时间内没有收到来自客户端的消息
                                     //writerIdleTime:写超时事件，客户端一段时间内没有收到来自服务端的消息
                                     //allIdleTime：  所有类型的超时时间
-                                    .addLast(new IdleStateHandler(10,0,0, TimeUnit.SECONDS))
+                                    .addLast(new IdleStateHandler(1000,0,0, TimeUnit.SECONDS)) // todo 超时时间
                                     //自定义 心跳超时处理器 HandlerHeartBeat
                                     .addLast(handlerHeartBeat)
                                     //将http协议升级为ws协议
@@ -61,6 +65,9 @@ public class NettyWebSocketStarter {
                                     .addLast(handlerWebSocket);
                         }
                     });
+            /**
+             * sync()方法让异步的操作变成同步的。
+             */
             ChannelFuture channelFuture = serverBootstrap.bind(wsPort).sync();
             log.info("ws_port:{}",wsPort);
             log.info("Netty启动成功");

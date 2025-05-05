@@ -4,8 +4,8 @@ import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.entity.DTO.request.LoginDTO;
 import com.easychat.entity.DTO.request.RegisterDTO;
+import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.service.IUserInfoService;
-import com.easychat.webSocket.MessageHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +19,7 @@ import javax.servlet.http.HttpServletResponse;
  * 用户信息 前端控制器
  * </p>
  *
- * @author scj
+ * @author may
  * @since 2025-02-26
  */
 @RestController
@@ -29,7 +29,7 @@ public class UserInfoController {
     @Autowired
     private IUserInfoService iUserInfoService;
     @Resource
-    private MessageHandler messageHandler;
+    private KafkaMessageProducer kafkaMessageProducer;
 
 
     @PostMapping("/login")
@@ -62,13 +62,11 @@ public class UserInfoController {
         return ResultVo.failed("发生错误：验证码发送失败");
     }
 
-
-
     @GetMapping("/test")
     public ResultVo<Object> test(){
         MessageSendDTO sendDto = new MessageSendDTO();
         sendDto.setMessageContent("你好：" + System.currentTimeMillis());
-        messageHandler.sendMessage(sendDto);
+        kafkaMessageProducer.sendMessage(sendDto);
         return ResultVo.success();
     }
 

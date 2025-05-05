@@ -8,6 +8,7 @@ import java.util.List;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -20,6 +21,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @TableName("chat_message")
+@Accessors(chain = true)
 public class ChatMessage implements Serializable {
 
     private static final long serialVersionUID = 1L;

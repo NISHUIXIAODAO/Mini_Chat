@@ -31,11 +31,11 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        // 显式捕获并处理异常
-        if (cause instanceof NullPointerException) {
-            log.error(" 空指针异常：", cause);
-        }
-//        ctx.close();   // 关闭异常连接
+//        // 显式捕获并处理异常
+//        if (cause instanceof NullPointerException) {
+//            log.error(" 空指针异常：", cause);
+//        }
+////        ctx.close();   // 关闭异常连接
     }
 
     @Override
@@ -55,7 +55,7 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
         Channel channel = ctx.channel();
         Attribute<Integer> attribute = channel.attr(AttributeKey.valueOf(channel.id().toString()));
         Integer userId = attribute.get();
-        log.info("收到来自userId为 {} 的消息：{}" , userId , textWebSocketFrame.text());
+        log.info("服务器收到来自userId（发送人）为 {} 的消息：{}" , userId , textWebSocketFrame.text());
         redisService.saveHeartBeat(userId);
     }
 
@@ -63,6 +63,10 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         //判断连接成功
         log.info("evt:{}", evt);
+        /**
+         * evt 触发事件
+         * HandshakeComplete 表示客户端与服务器 websocket 握手连接成功
+         */
         if(evt instanceof WebSocketServerProtocolHandler.HandshakeComplete){
             WebSocketServerProtocolHandler.HandshakeComplete complete = (WebSocketServerProtocolHandler.HandshakeComplete) evt;
             String url = complete.requestUri();
@@ -74,6 +78,9 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
                 ctx.channel().close();
                 return ;
             }
+            /**
+             * 建立用户自己的 channel 通过 addContext 方法 将用户 ID和管道绑定
+             */
             channelContextUtils.addContext(jwtService.getUserId(token),ctx.channel());
             log.info("");
         }
@@ -81,7 +88,7 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
 
 
     /***
-     * 通过url 拿到token
+     * 通过 url 拿到 token
      * @param url
      * @return
      */

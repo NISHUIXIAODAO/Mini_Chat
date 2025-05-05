@@ -6,6 +6,7 @@ import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.enums.FriendStatusEnum;
 import com.easychat.enums.MessageTypeEnum;
 import com.easychat.hander.GlobalExceptionHandler;
+import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.mapper.ChatMessageMapper;
 import com.easychat.mapper.ChatSessionMapper;
 import com.easychat.mapper.UserContactMapper;
@@ -16,7 +17,6 @@ import com.easychat.service.IJWTService;
 import com.easychat.service.IRedisService;
 import com.easychat.utils.CopyTools;
 import com.easychat.utils.SessionIdUtils;
-import com.easychat.webSocket.MessageHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -54,7 +54,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     @Autowired
     private ChatMessageMapper chatMessageMapper;
     @Autowired
-    private MessageHandler messageHandler;
+    private KafkaMessageProducer kafkaMessageProducer;
 
     @Override
     public MessageSendDTO saveMessage(ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response) {
@@ -63,66 +63,69 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         String sendUserNickName = userInfoMapper.getNickNameByUserId(userId);
         Integer contactId = chatSendMessageDTO.getContactId();
 
-        ChatMessage chatMessage = new ChatMessage();
-
         //判断是否是机器人回复，判断好友状态
-        if(!userId.equals(ROBOT_ID)){
-            List<Integer> friendIdList = redisService.getUserContactList(redisService.generateRedisKey(userId,CONTACT_TYPE_FRIEND));
-            List<Integer> groupIdList = redisService.getUserContactList(redisService.generateRedisKey(userId,CONTACT_TYPE_GROUPS));
+        if (!userId.equals(ROBOT_ID)) {
+            List<Integer> friendIdList = redisService.getUserContactList(redisService.generateRedisKey(userId, CONTACT_TYPE_FRIEND));
+            List<Integer> groupIdList = redisService.getUserContactList(redisService.generateRedisKey(userId, CONTACT_TYPE_GROUPS));
             //判断是否存在好友或群组
-            if(!friendIdList.contains(contactId) && !groupIdList.contains(contactId) ){
+            if (!friendIdList.contains(contactId) && !groupIdList.contains(contactId)) {
+                throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_UNEXIST);
+            } else if (friendIdList.contains(contactId)) {
                 //判断是否拉黑
-                Integer status = userContactMapper.getStatusByUserIdAndContactId(userId,contactId);
-                if(status.equals(FriendStatusEnum.FRIEND_BLACK.getCode())){
+                Integer status = userContactMapper.getStatusByUserIdAndContactId(userId, contactId);
+                if (status.equals(FriendStatusEnum.FRIEND_BLACK.getCode())) {
                     throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_BLACK);
                 }
             }
+
         }
         String sessionId = null;
         Integer sendUserId = userId;
 
-        Long curTime = System.currentTimeMillis();
+        long curTime = System.currentTimeMillis();
         //查询联系人是单聊还是群聊
-        Integer contactType = userContactMapper.getContactTypeByContactId(contactId);
+        Integer contactType = userContactMapper.getContactTypeByContactId(userId, contactId);
 
         //单聊 else 群聊
-        sessionId = SessionIdUtils.generateSessionId(sendUserId,contactId);
+        sessionId = SessionIdUtils.generateSessionId(sendUserId, contactId);
 
 
         Integer messageType = chatSendMessageDTO.getMessageType();
         //若是chat和media_chat之外的消息，不发
-        if(messageType == null || (!messageType.equals(MessageTypeEnum.CHAT.getType()) && !messageType.equals(MessageTypeEnum.MEDIA_CHAT.getType()))){
+        if (messageType == null || (!messageType.equals(MessageTypeEnum.CHAT.getType()) && !messageType.equals(MessageTypeEnum.MEDIA_CHAT.getType()))) {
             throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_600);
         }
 
         Integer messageStatus = Objects.equals(MessageTypeEnum.MEDIA_CHAT.getType(), messageType) ? SENDING.getStatus() : SEND_ED.getStatus();
 
+        // 脚本转义，消息清洗
         String messageContent = cleanHtmlTag(chatSendMessageDTO.getMessageContent());
 
-        //更新会话
+        //更新会话表
         String lastMessage = messageContent;
-        if(contactType.equals(CONTACT_TYPE_GROUPS)){
+        if (contactType.equals(CONTACT_TYPE_GROUPS)) {
             lastMessage = sendUserNickName + ":" + messageContent;
         }
-        chatSessionMapper.updateBySessionId(sessionId,lastMessage,curTime);
+        chatSessionMapper.updateBySessionId(sessionId, lastMessage, curTime);
 
-        //更新会话表
-        chatMessage.setSessionId(sessionId);
-        chatMessage.setMessageType(messageType);
-        chatMessage.setSendUserId(userId);
-        chatMessage.setMessageContent(lastMessage);
-        chatMessage.setSendUserNickName(sendUserNickName);
-        chatMessage.setSendTime(curTime);
-        chatMessage.setContactId(contactId);
-        chatMessage.setContactType(contactType);
-        chatMessage.setFileSize(chatSendMessageDTO.getFileSize());
-        chatMessage.setFileType(chatSendMessageDTO.getFileType());
-        chatMessage.setFileName(chatSendMessageDTO.getFilename());
-        chatMessage.setStatus(messageStatus);
+        ChatMessage chatMessage = new ChatMessage();
+        //更新消息表
+        chatMessage.setSessionId(sessionId)
+                .setMessageType(messageType)
+                .setSendUserId(userId)
+                .setMessageContent(lastMessage)
+                .setSendUserNickName(sendUserNickName)
+                .setSendTime(curTime)
+                .setContactId(contactId)
+                .setContactType(contactType)
+                .setFileSize(chatSendMessageDTO.getFileSize())
+                .setFileType(chatSendMessageDTO.getFileType())
+                .setFileName(chatSendMessageDTO.getFilename())
+                .setStatus(messageStatus);
         chatMessageMapper.insert(chatMessage);
 
         MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
-        messageHandler.sendMessage(messageSendDTO);
+        kafkaMessageProducer.sendMessage(messageSendDTO);
 
         return messageSendDTO;
 

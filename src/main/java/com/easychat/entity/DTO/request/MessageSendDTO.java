@@ -3,12 +3,14 @@ package com.easychat.entity.DTO.request;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 import java.io.Serializable;
 
 @Setter
 @Getter
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Accessors(chain = true)
 public class MessageSendDTO<T> implements Serializable {
     private static final long serialVersionUID = -1045752033171142417L;
 

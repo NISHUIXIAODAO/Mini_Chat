@@ -9,6 +9,7 @@ import com.easychat.enums.FriendStatusEnum;
 import com.easychat.enums.MessageStatusEnum;
 import com.easychat.enums.MessageTypeEnum;
 import com.easychat.hander.GlobalExceptionHandler;
+import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.mapper.*;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IRedisService;
@@ -16,7 +17,6 @@ import com.easychat.service.IUserContactService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.easychat.utils.CopyTools;
 import com.easychat.webSocket.ChannelContextUtils;
-import com.easychat.webSocket.MessageHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,8 +24,9 @@ import org.springframework.stereotype.Service;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+
+import static com.easychat.utils.SessionIdUtils.generateSessionId;
 
 import static com.easychat.enums.ContactApplyStatusEnum.*;
 import static com.easychat.enums.FriendStatusEnum.FRIEND_BLACK;
@@ -36,7 +37,7 @@ import static com.easychat.utils.SessionIdUtils.generateSessionId;
 
 /**
  * <p>
- *  服务实现类
+ *  添加联系人
  * </p>
  *
  * @author my
@@ -61,7 +62,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
     @Autowired
     private UserContactApplyMapper userContactApplyMapper;
     @Autowired
-    private MessageHandler messageHandler;
+    private KafkaMessageProducer kafkaMessageProducer;
     @Autowired
     private IRedisService redisService;
     @Autowired
@@ -69,12 +70,20 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
     @Autowired
     private ChannelContextUtils channelContextUtils;
 
-
-    //查询联系人(朋友)
+    /***
+     * //查询联系人(朋友)
+     * @param userId
+     * @return
+     */
     public List<Integer> getFriendIdList(Integer userId){
         return userContactMapper.getListById(userId,CONTACT_TYPE_FRIEND);
     }
-    //查询群聊
+
+    /***
+     * 查询群聊
+     * @param userId
+     * @return
+     */
     public List<Integer> getGroupIdList(Integer userId){
         return userContactMapper.getListById(userId,CONTACT_TYPE_GROUPS);
     }
@@ -88,42 +97,42 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
     public void addContact4Robot(Integer userId) {
 
         UserContact userContact = new UserContact();
-        userContact.setUserId(userId);
-        userContact.setContactId(ROBOT_ID);
-        userContact.setContactType(CONTACT_TYPE_FRIEND);
-        userContact.setCreateTime(LocalDateTime.now());
-        userContact.setLastUpdateTime(LocalDateTime.now());
-        userContact.setStatus(FRIEND_YES.getCode());
+        userContact.setUserId(userId)
+                .setContactId(ROBOT_ID)
+                .setContactType(CONTACT_TYPE_FRIEND)
+                .setCreateTime(LocalDateTime.now())
+                .setLastUpdateTime(LocalDateTime.now())
+                .setStatus(FRIEND_YES.getCode());
         userContactMapper.insert(userContact);
 
         //增加会话信息
         Date curDate = new Date();
         String sessionId = generateSessionId(1,userId);
-        ChatSession chatSession = new ChatSession();
-        chatSession.setSessionId(sessionId);
-        chatSession.setLastReceiveTime(curDate.getTime());
-        chatSession.setLastMessage(ROBOT_MESSAGE);
+        ChatSession chatSession = new ChatSession()
+                .setSessionId(sessionId)
+                .setLastReceiveTime(curDate.getTime())
+                .setLastMessage(ROBOT_MESSAGE);
         chatSessionMapper.insert(chatSession);
 
         //增加会话人信息
         ChatSessionUser chatSessionUser = new ChatSessionUser();
-        chatSessionUser.setUserId(userId);
-        chatSessionUser.setContactId(ROBOT_ID);
-        chatSessionUser.setContactName(ROBOT_NAME);
-        chatSessionUser.setSessionId(sessionId);
+        chatSessionUser.setUserId(userId)
+                .setContactId(ROBOT_ID)
+                .setContactName(ROBOT_NAME)
+                .setSessionId(sessionId);
         chatSessionUserMapper.insert(chatSessionUser);
 
         //增加聊天消息
         ChatMessage chatMessage = new ChatMessage();
-        chatMessage.setSessionId(sessionId);
-        chatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
-        chatMessage.setMessageContent(ROBOT_MESSAGE);
-        chatMessage.setSendUserId(ROBOT_ID);
-        chatMessage.setSendUserNickName(ROBOT_NAME);
-        chatMessage.setSendTime(curDate.getTime());
-        chatMessage.setContactId(userId);
-        chatMessage.setContactType(CONTACT_TYPE_FRIEND);
-        chatMessage.setStatus(MessageStatusEnum.SEND_ED.getStatus());
+        chatMessage.setSessionId(sessionId)
+                .setMessageType(MessageTypeEnum.CHAT.getType())
+                .setMessageContent(ROBOT_MESSAGE)
+                .setSendUserId(ROBOT_ID)
+                .setSendUserNickName(ROBOT_NAME)
+                .setSendTime(curDate.getTime())
+                .setContactId(userId)
+                .setContactType(CONTACT_TYPE_FRIEND)
+                .setStatus(MessageStatusEnum.SEND_ED.getStatus());
         chatMessageMapper.insert(chatMessage);
     }
 
@@ -208,7 +217,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
                 messageSendDTO.setMessageType(MessageTypeEnum.CONTACT_APPLY.getType());
                 messageSendDTO.setMessageContent(applyInfo);
                 messageSendDTO.setContactId(receiveUserId);
-                messageHandler.sendMessage(messageSendDTO);
+                kafkaMessageProducer.sendMessage(messageSendDTO);
             }
 
             return ResultVo.success("申请好友成功");
@@ -283,11 +292,82 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
             messageSendDTO.setMessageType(MessageTypeEnum.CONTACT_APPLY.getType());
             messageSendDTO.setMessageContent(applyGroupAddDTO.getApplyInfo());
             messageSendDTO.setContactId(groupOwnerId);
-            messageHandler.sendMessage(messageSendDTO);
+            kafkaMessageProducer.sendMessage(messageSendDTO);
         }
 
         return ResultVo.success("申请加入群聊成功");
 
+    }
+
+    @Override
+    public ResultVo<Object> getContactList(HttpServletRequest request, HttpServletResponse response) {
+        String userToken = request.getHeader("authorization");
+        //申请人ID (通过token拿到ID)
+        Integer userId = jwtService.getUserId(userToken);
+        
+        try {
+            // 获取用户的好友列表
+            List<Integer> friendIdList = getFriendIdList(userId);
+            // 获取用户的群组列表
+            List<Integer> groupIdList = getGroupIdList(userId);
+            
+            // 创建联系人列表结果
+            List<Map<String, Object>> contactList = new ArrayList<>();
+            
+            // 处理好友联系人
+            for (Integer friendId : friendIdList) {
+                // 获取好友信息
+                UserInfo friendInfo = userInfoMapper.getUserById(friendId);
+                if (friendInfo != null) {
+                    // 获取会话ID
+                    String sessionId = generateSessionId(userId, friendId);
+                    // 获取会话信息
+                    ChatSession chatSession = chatSessionMapper.getBySessionId(sessionId);
+                    
+                    Map<String, Object> contactMap = new HashMap<>();
+                    contactMap.put("contactId", friendId);
+                    contactMap.put("nickName", friendInfo.getNickName());
+                    contactMap.put("contactType", CONTACT_TYPE_FRIEND);
+                    contactMap.put("lastMessage", chatSession != null ? chatSession.getLastMessage() : "");
+                    contactMap.put("lastTime", chatSession != null ? chatSession.getLastReceiveTime() : 0);
+                    
+                    contactList.add(contactMap);
+                }
+            }
+            
+            // 处理群组联系人
+            for (Integer groupId : groupIdList) {
+                // 获取群组信息
+                GroupInfo groupInfo = groupInfoMapper.getByGroupId(groupId);
+                if (groupInfo != null) {
+                    // 获取会话ID
+                    String sessionId = generateSessionId(userId, groupId);
+                    // 获取会话信息
+                    ChatSession chatSession = chatSessionMapper.getBySessionId(sessionId);
+                    
+                    Map<String, Object> contactMap = new HashMap<>();
+                    contactMap.put("contactId", groupId);
+                    contactMap.put("nickName", groupInfo.getGroupName());
+                    contactMap.put("contactType", CONTACT_TYPE_GROUPS);
+                    contactMap.put("lastMessage", chatSession != null ? chatSession.getLastMessage() : "");
+                    contactMap.put("lastTime", chatSession != null ? chatSession.getLastReceiveTime() : 0);
+                    
+                    contactList.add(contactMap);
+                }
+            }
+            
+            // 按最后消息时间排序（降序）
+            contactList.sort((c1, c2) -> {
+                Long time1 = (Long) c1.get("lastTime");
+                Long time2 = (Long) c2.get("lastTime");
+                return time2.compareTo(time1);
+            });
+            
+            return ResultVo.success(contactList);
+        } catch (Exception e) {
+            log.error("获取联系人列表错误：{}", e.getMessage(), e);
+            return ResultVo.failed("获取联系人列表失败");
+        }
     }
 
     /***
@@ -395,7 +475,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
             chatSessionMapper.insert(chatSession);
 
             //申请人Session
-            UserInfo receiveUser = userInfoMapper.getByUserId(receiveUserId);
+            UserInfo receiveUser = userInfoMapper.getUserById(receiveUserId);
             if(chatSessionUserMapper.boolByUserIdAndContactId(applyUserId,receiveUserId) != null){
                 chatSessionUserMapper.updateByUserIdAndContactId(applyUserId,receiveUserId,receiveUser.getNickName());
             }
@@ -408,7 +488,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
 
 
             //接受人Session
-            UserInfo applyUser = userInfoMapper.getByUserId(applyUserId);
+            UserInfo applyUser = userInfoMapper.getUserById(applyUserId);
             if(chatSessionUserMapper.boolByUserIdAndContactId(receiveUserId,applyUserId) != null){
                 chatSessionUserMapper.updateByUserIdAndContactId(receiveUserId,applyUserId,applyUser.getNickName());
             }
@@ -433,13 +513,13 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
 
             MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
             //发送给receive用户
-            messageHandler.sendMessage(messageSendDTO);
+            kafkaMessageProducer.sendMessage(messageSendDTO);
 
             messageSendDTO.setMessageType(MessageTypeEnum.ADD_FRIEND_SELF.getType());
             messageSendDTO.setContactId(applyUserId);
             messageSendDTO.setExtendData(receiveUser);
 
-            messageHandler.sendMessage(messageSendDTO);
+            kafkaMessageProducer.sendMessage(messageSendDTO);
 
         } else {
             //加入群组
@@ -451,7 +531,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
             chatSessionUser.setSessionId(sessionId);
             chatSessionUserMapper.insert(chatSessionUser);
 
-            UserInfo applyUserInfo = userInfoMapper.getByUserId(applyUserId);
+            UserInfo applyUserInfo = userInfoMapper.getUserById(applyUserId);
             String sendMessage = String.format(MessageTypeEnum.ADD_GROUP.getInitMessage(),applyUserInfo.getNickName());
             //增加Session信息
             if(chatSessionMapper.boolSessionId(sessionId) != null){
@@ -487,7 +567,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
             messageSendDTO.setMemberCount(groupMemberCount);
             messageSendDTO.setContactName(groupInfo.getGroupName());
             //发消息
-            messageHandler.sendMessage(messageSendDTO);
+            kafkaMessageProducer.sendMessage(messageSendDTO);
         }
 
         return ResultVo.success("处理好友申请成功");

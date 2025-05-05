@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * <p>
- * 联系人申请 前端控制器
+ * 联系人申请
  * </p>
  *
  * @author my

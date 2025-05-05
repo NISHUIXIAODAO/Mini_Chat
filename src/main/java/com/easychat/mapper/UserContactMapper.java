@@ -39,6 +39,6 @@ public interface UserContactMapper extends BaseMapper<UserContact> {
 
     @Select("select status from user_contact where user_id = #{userId} and contact_id = #{contactId}")
     Integer getStatusByUserIdAndContactId(@Param("contactId") Integer userId,@Param("userId") Integer contactId);
-    @Select("select contact_type from user_contact where contact_id = #{contactId}")
-    Integer getContactTypeByContactId(@Param("contactId") Integer contactId);
+    @Select("select contact_type from user_contact where user_id = #{userId} and contact_id = #{contactId}")
+    Integer getContactTypeByContactId(@Param("userId") Integer userId, @Param("contactId") Integer contactId);
 }

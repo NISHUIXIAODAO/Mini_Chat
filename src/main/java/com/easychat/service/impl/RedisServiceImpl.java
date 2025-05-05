@@ -20,7 +20,7 @@ public class RedisServiceImpl implements IRedisService {
     private RedisTemplate redisTemplate;
 
     /***
-     * 生成Redis Key值 通过用户ID
+     * 生成 Redis Key值 通过用户ID
      * @param userId
      * @param contactType
      * @return
@@ -70,7 +70,7 @@ public class RedisServiceImpl implements IRedisService {
     }
 
     /***
-     * 存验证码到redis里
+     * 存验证码到 redis里
      * @param email
      * @param code
      * @param timeOut

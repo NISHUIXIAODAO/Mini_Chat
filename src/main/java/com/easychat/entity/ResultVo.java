@@ -85,5 +85,4 @@ public class ResultVo<T> {
         return new ResultVo(ErrorCodeEnum.PARAMS_ERROR.getCode(), massage, null);
     }
 
-//    public
 }

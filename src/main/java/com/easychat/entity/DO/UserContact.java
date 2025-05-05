@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 
 /**
  * <p>
@@ -19,6 +20,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @TableName("user_contact")
+@Accessors(chain = true)
 public class UserContact implements Serializable {
 
     private static final long serialVersionUID = 1L;
