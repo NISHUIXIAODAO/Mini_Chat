@@ -74,7 +74,6 @@ public class ChannelContextUtils {
         for(Integer groupId : groupIdList){
             add2Group(groupId,channel);
         }
-
         //更新用户最后连接时间
         userInfoMapper.updateLastLoginTimeById(userId, LocalDateTime.now());
 
@@ -189,7 +188,7 @@ public class ChannelContextUtils {
      */
     private void send2User(MessageSendDTO messageSendDTO){
         Integer contactId = messageSendDTO.getContactId();
-        if(contactId == null){
+         if(contactId == null){
             return;
         }
         sendMsg(messageSendDTO,contactId);
@@ -206,6 +205,7 @@ public class ChannelContextUtils {
         if(receiveId == null){
             return;
         }
+        // 广播到各个服务端后，只有 服务器的User_Context_Map 存在当前接收用户的id，才会对消息进行一个处理
         Channel sendChannel = User_Context_Map.get(receiveId);
         if(sendChannel == null){
             return;

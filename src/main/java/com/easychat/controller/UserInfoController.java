@@ -62,12 +62,4 @@ public class UserInfoController {
         return ResultVo.failed("发生错误：验证码发送失败");
     }
 
-    @GetMapping("/test")
-    public ResultVo<Object> test(){
-        MessageSendDTO sendDto = new MessageSendDTO();
-        sendDto.setMessageContent("你好：" + System.currentTimeMillis());
-        kafkaMessageProducer.sendMessage(sendDto);
-        return ResultVo.success();
-    }
-
 }

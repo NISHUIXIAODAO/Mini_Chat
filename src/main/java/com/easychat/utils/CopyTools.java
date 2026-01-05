@@ -2,6 +2,7 @@ package com.easychat.utils;
 
 import com.easychat.entity.DO.ChatMessage;
 import com.easychat.entity.DTO.request.MessageSendDTO;
+import com.easychat.entity.DTO.response.MessageHistoryResponseDTO;
 import org.springframework.stereotype.Component;
 
 /***
@@ -21,5 +22,21 @@ public class CopyTools {
                 .setSendTime(chatMessage.getSendTime())
                 .setContactType(chatMessage.getContactType());
         return messageSendDTO;
+    }
+
+    public static void copyProperties(ChatMessage message, MessageHistoryResponseDTO dto) {
+        dto.setSendUserId(message.getSendUserId())
+                .setContactId(message.getContactId())
+                .setContactType(message.getContactType())
+                .setMessageId(message.getMessageId())
+                .setMessageContent(message.getMessageContent())
+                .setMessageType(message.getMessageType())
+                .setSessionId(message.getSessionId())
+                .setSendUserNickName(message.getSendUserNickName())
+                .setFileType(message.getFileType())
+                .setFileName(message.getFileName())
+                .setFileSize(message.getFileSize())
+                .setSendTime(message.getSendTime())
+                .setStatus(message.getStatus());
     }
 }

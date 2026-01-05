@@ -118,8 +118,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.code === 200 && data.data) {
                 chatMessages.innerHTML = '';
                 
+                // 确保消息按时间顺序排序（如果后端未排序）
+                const sortedMessages = [...data.data].sort((a, b) => {
+                    // sendTime字段，按时间排序
+                    if (a.sendTime && b.sendTime) {
+                        return new Date(a.sendTime) - new Date(b.sendTime);
+                    }
+                    return 0; // 保持原顺序
+                });
+                
                 // 渲染聊天记录
-                data.data.forEach(message => {
+                sortedMessages.forEach(message => {
                     addMessageToChat(message);
                 });
                 
@@ -136,12 +145,25 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 添加消息到聊天区域
     function addMessageToChat(message) {
+        // 检查消息是否有效
+        if (!message || !message.messageContent) {
+            console.error('无效的消息对象:', message);
+            return;
+        }
+        
         const messageElement = document.createElement('div');
         messageElement.className = message.senderId == userId ? 'message sent' : 'message received';
         
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
         messageContent.textContent = message.messageContent;
+        
+        // 添加时间戳属性用于消息去重
+        if (message.createTime) {
+            messageElement.dataset.timestamp = message.createTime;
+        } else {
+            messageElement.dataset.timestamp = Date.now();
+        }
         
         messageElement.appendChild(messageContent);
         chatMessages.appendChild(messageElement);
@@ -161,9 +183,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageData = {
             contactId: currentContactId,
             messageContent: content,
-            messageType: 0 // 文本消息
+            messageType: 2, // 文本消息
+            sendUserId: userId
         };
         
+        // 立即在前端显示发送的消息
+        const newMessage = {
+            senderId: userId,
+            messageContent: content
+        };
+        addMessageToChat(newMessage);
+        
+        // 清空输入框
+        messageInput.value = '';
+        
+        // 通过WebSocket发送消息
+        const ws = getWebSocketInstance();
+        const wsSuccess = ws.isConnected() && ws.sendMessage(messageData);
+        
+        // 同时通过HTTP接口发送（作为备份方式）
         fetch('/chat/sendMessage', {
             method: 'POST',
             headers: {
@@ -174,17 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.code === 200) {
-                // 清空输入框
-                messageInput.value = '';
-                
-                // 添加消息到聊天区域
-                const newMessage = {
-                    senderId: userId,
-                    messageContent: content
-                };
-                addMessageToChat(newMessage);
-            } else {
+            if (data.code !== 200) {
                 console.error('发送消息失败:', data.msg);
                 alert('发送消息失败: ' + data.msg);
             }
@@ -232,8 +260,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        fetch(`/userContact/applyFriendAdd?token=${token}&contactId=${friendId}&applyInfo=${encodeURIComponent(applyMessage)}`, {
-            method: 'POST'
+        fetch(`/userContact/applyFriendAdd?contactId=${friendId}&applyInfo=${encodeURIComponent(applyMessage)}`, {
+            method: 'POST' ,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            }
         })
         .then(response => response.json())
         .then(data => {
@@ -253,13 +285,54 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始加载联系人列表
     loadContacts();
     
-    // 定时刷新联系人列表和当前聊天记录
-    setInterval(function() {
-        loadContacts();
-        if (currentContactId) {
-            loadChatHistory(currentContactId);
+    // 初始化WebSocket消息处理
+    const ws = getWebSocketInstance();
+    
+    // 监听WebSocket聊天消息
+    ws.onChatMessage(message => {
+        // 检查消息是否有效
+        if (!message || !message.messageContent) {
+            console.error('收到无效的WebSocket消息:', message);
+            return;
         }
-    }, 10000); // 每10秒刷新一次
+        
+        // 检查是否是当前正在聊天的联系人发来的消息
+        if (currentContactId && (message.sendUserId == currentContactId || message.contactId == currentContactId)) {
+            // 检查消息是否已经显示（防止重复显示）
+            const existingMessages = chatMessages.querySelectorAll('.message');
+            let isDuplicate = false;
+            
+            // 使用消息内容和发送者ID来判断是否为重复消息
+            for (let i = 0; i < existingMessages.length; i++) {
+                const msgContent = existingMessages[i].querySelector('.message-content').textContent;
+                const isSent = existingMessages[i].classList.contains('sent');
+                const msgSenderId = isSent ? userId : message.sendUserId;
+                
+                if (msgContent === message.messageContent && msgSenderId == message.sendUserId) {
+                    // 如果消息内容和发送者都相同，认为是重复消息
+                    isDuplicate = true;
+                    break;
+                }
+            }
+            
+            // 如果不是重复消息，则添加到聊天区域
+            if (!isDuplicate) {
+                const messageObj = {
+                    senderId: message.sendUserId,
+                    messageContent: message.messageContent,
+                    createTime: message.sendTime || Date.now()
+                };
+                addMessageToChat(messageObj);
+            }
+        } else {
+            // 只有在不是当前聊天的联系人发来消息时才更新联系人列表
+            loadContacts();
+        }
+    });
+    
+    // 监听系统通知和好友请求，同样需要更新联系人列表
+    ws.onSystemNotice(() => loadContacts());
+    ws.onFriendRequest(() => loadContacts());
 });
 
 // 添加CSS样式

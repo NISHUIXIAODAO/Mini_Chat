@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
 /**
@@ -27,11 +29,11 @@ public class UserContactApplyController {
     private IUserContactApplyService userContactApplyService;
 
     @GetMapping("/getApplyList")
-    public List<UserApplyListResponseDTO> getApplyList(@RequestParam String token){
+    public List<UserApplyListResponseDTO> getApplyList(HttpServletRequest request){
         try{
-            return userContactApplyService.getApplyList(token);
+            return userContactApplyService.getApplyList(request.getHeader("authorization"));
         }catch (Exception e){
-            log.error("处理好友申请错误：{}",e);
+            log.error("获取好友申请错误：{}",e);
         }
         return null;
     }

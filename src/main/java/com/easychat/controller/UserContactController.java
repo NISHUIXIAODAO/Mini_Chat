@@ -37,9 +37,9 @@ public class UserContactController {
     }
 
     @PostMapping("/applyFriendAdd")
-    public ResultVo<Object> applyFriendAdd(String token, Integer contactId, String applyInfo) {
+    public ResultVo<Object> applyFriendAdd(HttpServletRequest request, Integer contactId, String applyInfo) {
         try {
-            return iUserContactService.applyFriendAdd(token, contactId, applyInfo);
+            return iUserContactService.applyFriendAdd(request.getHeader("token"), contactId, applyInfo);
         } catch (Exception e) {
             log.error("错误：{}", e);
         }

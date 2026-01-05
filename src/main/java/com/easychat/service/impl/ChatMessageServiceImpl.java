@@ -2,7 +2,9 @@ package com.easychat.service.impl;
 
 import com.easychat.entity.DO.ChatMessage;
 import com.easychat.entity.DTO.request.ChatSendMessageDTO;
+import com.easychat.entity.DTO.request.GetMessageHistoryDTO;
 import com.easychat.entity.DTO.request.MessageSendDTO;
+import com.easychat.entity.DTO.response.MessageHistoryResponseDTO;
 import com.easychat.enums.FriendStatusEnum;
 import com.easychat.enums.MessageTypeEnum;
 import com.easychat.hander.GlobalExceptionHandler;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Service;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -58,7 +61,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
 
     @Override
     public MessageSendDTO saveMessage(ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response) {
-        String token = request.getHeader("token");
+        String token = request.getHeader("authorization");
         Integer userId = jwtService.getUserId(token);
         String sendUserNickName = userInfoMapper.getNickNameByUserId(userId);
         Integer contactId = chatSendMessageDTO.getContactId();
@@ -129,5 +132,54 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
 
         return messageSendDTO;
 
+    }
+    
+    @Override
+    public List<MessageHistoryResponseDTO> getMessageHistory(GetMessageHistoryDTO getMessageHistoryDTO, HttpServletRequest request) {
+        String token = request.getHeader("token");
+        Integer userId = jwtService.getUserId(token);
+        
+        List<ChatMessage> messageList;
+        if (getMessageHistoryDTO.getSessionId() != null && !getMessageHistoryDTO.getSessionId().isEmpty()) {
+            // 根据会话ID查询
+            messageList = chatMessageMapper.getMessageHistory(
+                getMessageHistoryDTO.getSessionId(),
+                getMessageHistoryDTO.getLastTimestamp(),
+                getMessageHistoryDTO.getPageSize()
+            );
+        } else if (getMessageHistoryDTO.getContactId() != null) {
+            // 根据联系人ID查询
+            // 如果是单聊，需要生成sessionId
+            Integer contactId = getMessageHistoryDTO.getContactId();
+            Integer contactType = userContactMapper.getContactTypeByContactId(userId, contactId);
+            
+            if (contactType != null && contactType == 0) { // 单聊
+                String sessionId = SessionIdUtils.generateSessionId(userId, contactId);
+                messageList = chatMessageMapper.getMessageHistory(
+                    sessionId,
+                    getMessageHistoryDTO.getLastTimestamp(),
+                    getMessageHistoryDTO.getPageSize()
+                );
+            } else { // 群聊或其他情况，直接按contactId查询
+                messageList = chatMessageMapper.getMessageHistoryByContactId(
+                    contactId,
+                    getMessageHistoryDTO.getLastTimestamp(),
+                    getMessageHistoryDTO.getPageSize()
+                );
+            }
+        } else {
+            // 参数不足
+            throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_PARAM_ERROR);
+        }
+        
+        // 转换为响应DTO
+        List<MessageHistoryResponseDTO> resultList = new ArrayList<>();
+        for (ChatMessage message : messageList) {
+            MessageHistoryResponseDTO dto = new MessageHistoryResponseDTO();
+            CopyTools.copyProperties(message, dto);
+            resultList.add(dto);
+        }
+        
+        return resultList;
     }
 }

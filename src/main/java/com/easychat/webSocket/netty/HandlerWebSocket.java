@@ -31,11 +31,8 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-//        // 显式捕获并处理异常
-//        if (cause instanceof NullPointerException) {
-//            log.error(" 空指针异常：", cause);
-//        }
-////        ctx.close();   // 关闭异常连接
+        log.error("WebSocket处理异常", cause); // 打印完整异常栈
+        ctx.close(); // 发生异常时关闭连接
     }
 
     @Override
@@ -101,10 +98,16 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
         if (queryParams.length != 2){
             return null;
         }
-        String[] params = queryParams[1].split("=");
-        if (params.length != 2){
-            return null;
+        
+        // 解析查询参数
+        String[] paramPairs = queryParams[1].split("&");
+        for (String pair : paramPairs) {
+            String[] keyValue = pair.split("=");
+            if (keyValue.length == 2 && "token".equals(keyValue[0])) {
+                return keyValue[1];
+            }
         }
-        return params[1];
+        
+        return null;
     }
 }

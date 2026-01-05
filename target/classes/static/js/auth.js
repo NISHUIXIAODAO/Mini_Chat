@@ -1,5 +1,8 @@
 // 登录和注册功能的JavaScript代码
 document.addEventListener('DOMContentLoaded', function() {
+    // 验证码按钮冷却时间（秒）
+    let codeCooldown = 0;
+    let cooldownInterval;
     // 获取DOM元素
     const loginTab = document.getElementById('login-tab');
     const registerTab = document.getElementById('register-tab');
@@ -71,6 +74,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // 发送验证码按钮点击事件
+    const sendCodeBtn = document.getElementById('send-code-btn');
+    sendCodeBtn.addEventListener('click', function() {
+        if (codeCooldown > 0) return; // 如果在冷却中，不执行操作
+        
+        const email = document.getElementById('register-email').value;
+        
+        // 验证邮箱
+        if (!email) {
+            alert('请先填写邮箱');
+            return;
+        }
+        
+        // 发送获取验证码请求
+        fetch(`/userInfo/sendCode?email=${encodeURIComponent(email)}`, {
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.code === 200) {
+                // 发送成功，开始倒计时
+                codeCooldown = 60; // 60秒冷却时间
+                sendCodeBtn.disabled = true;
+                sendCodeBtn.textContent = `${codeCooldown}秒后重试`;
+                
+                cooldownInterval = setInterval(() => {
+                    codeCooldown--;
+                    sendCodeBtn.textContent = `${codeCooldown}秒后重试`;
+                    
+                    if (codeCooldown <= 0) {
+                        clearInterval(cooldownInterval);
+                        sendCodeBtn.disabled = false;
+                        sendCodeBtn.textContent = '获取验证码';
+                    }
+                }, 1000);
+                
+                alert('验证码已发送到您的邮箱');
+            } else {
+                // 发送失败
+                alert('验证码发送失败: ' + data.msg);
+            }
+        })
+        .catch(error => {
+            console.error('验证码请求出错:', error);
+            alert('验证码请求出错，请稍后再试');
+        });
+    });
+
     // 注册表单提交
     registerForm.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -79,10 +130,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const nickname = document.getElementById('register-nickname').value;
         const password = document.getElementById('register-password').value;
         const confirmPassword = document.getElementById('register-confirm-password').value;
+        const code = document.getElementById('register-code').value;
         const sex = document.querySelector('input[name="sex"]:checked').value;
         
         // 验证表单
-        if (!email || !nickname || !password || !confirmPassword) {
+        if (!email || !nickname || !password || !confirmPassword || !code) {
             alert('请填写所有必填字段');
             return;
         }
@@ -97,7 +149,8 @@ document.addEventListener('DOMContentLoaded', function() {
             email: email,
             nickName: nickname,
             password: password,
-            sex: sex === '1'
+            sex: sex === '1',
+            code: code
         };
         
         // 发送注册请求

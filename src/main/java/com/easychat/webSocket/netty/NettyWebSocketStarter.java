@@ -41,7 +41,8 @@ public class NettyWebSocketStarter {
     public void startNetty(){
         try{
             ServerBootstrap serverBootstrap = new ServerBootstrap();
-            serverBootstrap.group(bossGroup,workGroup)
+            serverBootstrap
+                    .group(bossGroup,workGroup)
                     .channel(NioServerSocketChannel.class)//声明服务端使用 Java NIO 模型
                     .handler(new LoggingHandler(LogLevel.DEBUG))
                     .childHandler(new ChannelInitializer() {

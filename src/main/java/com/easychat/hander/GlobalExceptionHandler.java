@@ -96,7 +96,8 @@ public class GlobalExceptionHandler {
 
         CODE_600(600,"chatMessage is null or not must to send "),
         CODE_BLACK(901,"对方已拉黑你"),
-        CODE_UNEXIST(902,"你们还不是好友");
+        CODE_UNEXIST(902,"你们还不是好友"),
+        CODE_PARAM_ERROR(903, "获取聊天历史消息参数不足");
 
 
         private final int code;

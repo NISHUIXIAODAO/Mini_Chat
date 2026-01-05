@@ -34,4 +34,30 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
 //    Integer getContactTypeByMessageId(@Param("messageId") Long messageId);
     @Select("select contact_type from chat_message where contact_id = #{contactId} and session_id = #{sessionId}")
     Integer getContactTypeByContactId(@Param("contactId") Integer contactId , @Param("sessionId") String sessionId);
+    
+    @Select("<script>"
+            + "SELECT * FROM chat_message "
+            + "WHERE session_id = #{sessionId} "
+            + "<if test='lastTimestamp != null'>"
+            + "AND send_time &lt; #{lastTimestamp} "
+            + "</if>"
+            + "ORDER BY send_time DESC "
+            + "LIMIT #{pageSize}"
+            + "</script>")
+    List<ChatMessage> getMessageHistory(@Param("sessionId") String sessionId, 
+                                      @Param("lastTimestamp") Long lastTimestamp,
+                                      @Param("pageSize") Integer pageSize);
+    
+    @Select("<script>"
+            + "SELECT * FROM chat_message "
+            + "WHERE contact_id = #{contactId} "
+            + "<if test='lastTimestamp != null'>"
+            + "AND send_time &lt; #{lastTimestamp} "
+            + "</if>"
+            + "ORDER BY send_time DESC "
+            + "LIMIT #{pageSize}"
+            + "</script>")
+    List<ChatMessage> getMessageHistoryByContactId(@Param("contactId") Integer contactId, 
+                                                 @Param("lastTimestamp") Long lastTimestamp,
+                                                 @Param("pageSize") Integer pageSize);
 }
