@@ -105,6 +105,14 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
                 .setStatus(FRIEND_YES.getCode());
         userContactMapper.insert(userContact);
 
+        userContact.setUserId(ROBOT_ID)
+                .setContactId(userId)
+                .setContactType(CONTACT_TYPE_FRIEND)
+                .setCreateTime(LocalDateTime.now())
+                .setLastUpdateTime(LocalDateTime.now())
+                .setStatus(FRIEND_YES.getCode());
+        userContactMapper.insert(userContact);
+
         //增加会话信息
         Date curDate = new Date();
         String sessionId = generateSessionId(1, userId);
