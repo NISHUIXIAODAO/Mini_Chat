@@ -13,6 +13,7 @@ import com.easychat.mapper.ChatMessageMapper;
 import com.easychat.mapper.ChatSessionMapper;
 import com.easychat.mapper.UserContactMapper;
 import com.easychat.mapper.UserInfoMapper;
+import com.easychat.service.AIService;
 import com.easychat.service.IChatMessageService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.easychat.service.IJWTService;
@@ -28,6 +29,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.easychat.enums.MessageStatusEnum.SENDING;
 import static com.easychat.enums.MessageStatusEnum.SEND_ED;
@@ -44,6 +48,8 @@ import static com.easychat.utils.ConstantUtils.*;
 @Service
 public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatMessage> implements IChatMessageService {
 
+    private static final Logger logger = LoggerFactory.getLogger(ChatMessageServiceImpl.class);
+
     @Autowired
     private IJWTService jwtService;
     @Autowired
@@ -58,6 +64,8 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     private ChatMessageMapper chatMessageMapper;
     @Autowired
     private KafkaMessageProducer kafkaMessageProducer;
+    @Autowired
+    private AIService aiService;
 
     @Override
     public MessageSendDTO saveMessage(ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response) {
@@ -130,6 +138,13 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
         kafkaMessageProducer.sendMessage(messageSendDTO);
 
+    // 机器人自动回复
+        if (ROBOT_ID.equals(contactId)) {
+            // 注意：userId 可能是 null，如果 jwtService 解析失败，但前面已经用过了应该没事。
+            // 重点检查 chatWithRobot 方法内部是否使用了可能为 null 的对象
+            chatWithRobot(messageContent, sessionId, userId);
+        }
+
         return messageSendDTO;
 
     }
@@ -181,5 +196,42 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         }
         
         return resultList;
+    }
+
+    /**
+     * 机器人自动回复逻辑 (异步执行)
+     */
+    private void chatWithRobot(String content, String sessionId, Integer userContactId) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 1. 调用 AI 接口获取回复
+                String aiReply = aiService.chat(content);
+
+                // 2. 构造机器人回复的消息对象
+                ChatMessage chatMessage = new ChatMessage();
+                chatMessage.setSessionId(sessionId);
+                chatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
+                chatMessage.setSendUserId(ROBOT_ID); // 发送者是机器人
+                chatMessage.setSendUserNickName(ROBOT_NAME);
+                chatMessage.setMessageContent(aiReply);
+                chatMessage.setSendTime(System.currentTimeMillis());
+                chatMessage.setContactId(userContactId); // 接收者是用户
+                chatMessage.setContactType(0); // 单聊
+                chatMessage.setStatus(SEND_ED.getStatus());
+
+                // 3. 保存消息到数据库
+                chatMessageMapper.insert(chatMessage);
+
+                // 4. 更新会话表的最后一条消息
+                chatSessionMapper.updateBySessionId(sessionId, aiReply, System.currentTimeMillis());
+
+                // 5. 发送 Kafka 消息 (推送到前端)
+                MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
+                kafkaMessageProducer.sendMessage(messageSendDTO);
+
+            } catch (Exception e) {
+                logger.error("机器人回复失败", e);
+            }
+        });
     }
 }

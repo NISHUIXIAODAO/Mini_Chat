@@ -213,8 +213,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.code !== 200) {
-                console.error('发送消息失败:', data.msg);
-                alert('发送消息失败: ' + data.msg);
+                console.error('发送消息失败:', data);
+                // 优先尝试获取 message 字段，这是 ResultVo 的标准字段
+                alert('发送消息失败: ' + (data.message || data.msg || '未知错误，状态码:' + data.code));
             }
         })
         .catch(error => {
