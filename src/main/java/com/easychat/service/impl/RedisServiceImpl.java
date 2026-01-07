@@ -105,4 +105,19 @@ public class RedisServiceImpl implements IRedisService {
         return redisTemplate.opsForList().range(userKey,0,-1);
     }
 
+    @Override
+    public void saveUserLocation(Integer userId, String ip) {
+        redisTemplate.opsForValue().set("user:location:" + userId, ip, 1, TimeUnit.DAYS);
+    }
+
+    @Override
+    public String getUserLocation(Integer userId) {
+        return (String) redisTemplate.opsForValue().get("user:location:" + userId);
+    }
+
+    @Override
+    public void removeUserLocation(Integer userId) {
+        redisTemplate.delete("user:location:" + userId);
+    }
+
 }

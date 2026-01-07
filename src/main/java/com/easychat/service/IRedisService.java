@@ -14,5 +14,7 @@ public interface IRedisService {
     public void addUserContactBatch(String userKey, List<Integer> contactList);
     public void addUserContact(String userKey , Integer contactId);
     public List<Integer> getUserContactList(String userKey);
-
+    public void saveUserLocation(Integer userId, String ip);
+    public String getUserLocation(Integer userId);
+    public void removeUserLocation(Integer userId);
 }
