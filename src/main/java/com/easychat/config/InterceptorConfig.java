@@ -25,6 +25,7 @@ public class InterceptorConfig implements WebMvcConfigurer {
                         "/userInfo/register",
                         "/error",
                         "/userInfo/sendCode",
+                        "/internal/**", // 内部通信接口白名单
                         "/*.html",
                         "/*.ico",
                         "/*.html",
