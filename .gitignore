@@ -1,9 +1,8 @@
-# Maven
 /target/
-
-# IDE
+!.mvn/wrapper/maven-wrapper.jar
 .idea/
+*.iws
 *.iml
-
-# Logs
+*.ipr
+logs/
 *.log
