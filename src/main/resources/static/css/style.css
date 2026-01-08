@@ -284,16 +284,20 @@ input:focus {
     padding: 10px 15px;
     border-radius: 18px;
     font-size: 15px;
+    position: relative;
+    word-wrap: break-word;
 }
 
 .received .message-content {
     background-color: #fff;
     border: 1px solid #eee;
+    border-top-left-radius: 4px;
 }
 
 .sent .message-content {
     background-color: #4a89dc;
     color: white;
+    border-top-right-radius: 4px;
 }
 
 .chat-input {

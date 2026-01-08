@@ -99,6 +99,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
 
         //单聊 else 群聊
         sessionId = SessionIdUtils.generateSessionId(sendUserId, contactId);
+        logger.info("SaveMessage: userId={}, contactId={}, sessionId={}", sendUserId, contactId, sessionId);
 
 
         Integer messageType = chatSendMessageDTO.getMessageType();
@@ -151,7 +152,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     
     @Override
     public List<MessageHistoryResponseDTO> getMessageHistory(GetMessageHistoryDTO getMessageHistoryDTO, HttpServletRequest request) {
-        String token = request.getHeader("token");
+        String token = request.getHeader("authorization");
         Integer userId = jwtService.getUserId(token);
         
         List<ChatMessage> messageList;
@@ -168,19 +169,22 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
             Integer contactId = getMessageHistoryDTO.getContactId();
             Integer contactType = userContactMapper.getContactTypeByContactId(userId, contactId);
             
-            if (contactType != null && contactType == 0) { // 单聊
-                String sessionId = SessionIdUtils.generateSessionId(userId, contactId);
-                messageList = chatMessageMapper.getMessageHistory(
-                    sessionId,
-                    getMessageHistoryDTO.getLastTimestamp(),
-                    getMessageHistoryDTO.getPageSize()
-                );
-            } else { // 群聊或其他情况，直接按contactId查询
+            // 如果是群聊(1)，按contactId查询；否则（单聊0或null/陌生人），按sessionId查询
+            if (contactType != null && contactType.equals(CONTACT_TYPE_GROUPS)) { // 群聊
                 messageList = chatMessageMapper.getMessageHistoryByContactId(
                     contactId,
                     getMessageHistoryDTO.getLastTimestamp(),
                     getMessageHistoryDTO.getPageSize()
                 );
+            } else { // 单聊 (好友或陌生人)
+                String sessionId = SessionIdUtils.generateSessionId(userId, contactId);
+                logger.info("GetHistory: userId={}, contactId={}, sessionId={}", userId, contactId, sessionId);
+                messageList = chatMessageMapper.getMessageHistory(
+                    sessionId,
+                    getMessageHistoryDTO.getLastTimestamp(),
+                    getMessageHistoryDTO.getPageSize()
+                );
+                logger.info("GetHistory Result: count={}", messageList.size());
             }
         } else {
             // 参数不足
@@ -194,6 +198,14 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
             CopyTools.copyProperties(message, dto);
             resultList.add(dto);
         }
+        
+        // 按时间升序排序（旧消息在前，新消息在后），方便前端展示
+        resultList.sort((o1, o2) -> {
+            if (o1.getSendTime() == null || o2.getSendTime() == null) {
+                return 0;
+            }
+            return o1.getSendTime().compareTo(o2.getSendTime());
+        });
         
         return resultList;
     }

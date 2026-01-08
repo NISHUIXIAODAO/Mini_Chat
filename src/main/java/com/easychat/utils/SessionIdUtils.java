@@ -13,6 +13,9 @@ public class SessionIdUtils {
      * @return
      */
     public static String generateSessionId(Integer userId1, Integer userId2) {
+        if (userId1 == null || userId2 == null) {
+            throw new IllegalArgumentException("userId cannot be null when generating sessionId");
+        }
         Integer[] userIds = {userId1, userId2};
         Arrays.sort(userIds); // 确保顺序一致
         return md5(userIds[0] + "_" + userIds[1]);

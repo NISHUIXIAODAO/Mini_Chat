@@ -151,8 +151,21 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // 兼容处理 sendUserId (后端DTO) 和 senderId (旧前端逻辑)
+        // 优先使用 sendUserId，因为后端统一返回这个字段
+        const msgSenderId = message.sendUserId || message.senderId;
+        
+        // 调试日志：帮助排查为什么消息会显示在左边
+        console.log(`[MessageDebug] Content: ${message.messageContent}, MsgSenderId: ${msgSenderId} (Type: ${typeof msgSenderId}), CurrentUserId: ${userId} (Type: ${typeof userId})`);
+        
         const messageElement = document.createElement('div');
-        messageElement.className = message.senderId == userId ? 'message sent' : 'message received';
+        // 确保使用字符串比较，因为 localStorage 存储的是字符串，而 API 可能返回数字
+        // 核心逻辑：如果消息发送者ID 等于 当前登录用户ID，则是自己发送的消息(sent)，否则是对方发送的消息(received)
+        const isSent = String(msgSenderId) === String(userId);
+        
+        console.log(`[MessageDebug] IsSent: ${isSent} (Left/Right check)`);
+        
+        messageElement.className = isSent ? 'message sent' : 'message received';
         
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
@@ -189,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 立即在前端显示发送的消息
         const newMessage = {
-            senderId: userId,
+            sendUserId: userId,
             messageContent: content
         };
         addMessageToChat(newMessage);
@@ -296,9 +309,21 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('收到无效的WebSocket消息:', message);
             return;
         }
-        
+
+        // 兼容处理 senderId 和 sendUserId
+        const msgSenderId = message.senderId || message.sendUserId;
+        const currentUserIdStr = String(userId);
+        const msgSenderIdStr = String(msgSenderId);
+        const currentContactIdStr = String(currentContactId);
+        const msgContactIdStr = String(message.contactId);
+
         // 检查是否是当前正在聊天的联系人发来的消息
-        if (currentContactId && (message.sendUserId == currentContactId || message.contactId == currentContactId)) {
+        // 逻辑：
+        // 1. 对方发给我的：sendUserId == 当前窗口ID
+        // 2. 我发给对方的（多端同步）：contactId == 当前窗口ID
+        if (currentContactId && (msgSenderIdStr === currentContactIdStr || msgContactIdStr === currentContactIdStr)) {
+            console.log('匹配成功，准备添加到聊天框');
+            
             // 检查消息是否已经显示（防止重复显示）
             const existingMessages = chatMessages.querySelectorAll('.message');
             let isDuplicate = false;
@@ -307,33 +332,66 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let i = 0; i < existingMessages.length; i++) {
                 const msgContent = existingMessages[i].querySelector('.message-content').textContent;
                 const isSent = existingMessages[i].classList.contains('sent');
-                const msgSenderId = isSent ? userId : message.sendUserId;
+                const existingSenderId = isSent ? userId : message.sendUserId;
                 
-                if (msgContent === message.messageContent && msgSenderId == message.sendUserId) {
+                // 注意：这里也要转字符串比较
+                if (msgContent === message.messageContent && String(existingSenderId) === msgSenderIdStr) {
                     // 如果消息内容和发送者都相同，认为是重复消息
                     isDuplicate = true;
+                    console.log('检测到重复消息，跳过显示');
                     break;
                 }
             }
             
             // 如果不是重复消息，则添加到聊天区域
             if (!isDuplicate) {
-                const messageObj = {
-                    senderId: message.sendUserId,
-                    messageContent: message.messageContent,
-                    createTime: message.sendTime || Date.now()
-                };
-                addMessageToChat(messageObj);
+                // 直接传递原始 message 对象，addMessageToChat 会处理兼容性
+                addMessageToChat(message);
             }
-        } else {
-            // 只有在不是当前聊天的联系人发来消息时才更新联系人列表
-            loadContacts();
         }
+        
+        // 无论是否是当前联系人，都刷新联系人列表以显示最新消息预览
+        // 1. 优先进行前端更新（无延迟）
+        const isMyMessage = msgSenderIdStr === currentUserIdStr;
+        // 如果是我发的消息，对方是contactId；如果别人发给我，对方是sendUserId
+        const targetContactId = isMyMessage ? message.contactId : message.sendUserId;
+        
+        updateContactPreview(targetContactId, message.messageContent);
+        
+        // 2. 后台同步（防止缓存，增加时间戳）
+        loadContacts();
     });
     
-    // 监听系统通知和好友请求，同样需要更新联系人列表
-    ws.onSystemNotice(() => loadContacts());
-    ws.onFriendRequest(() => loadContacts());
+    // 更新联系人列表预览（乐观更新）
+    function updateContactPreview(contactId, content) {
+        const contactItem = document.querySelector(`.contact-item[data-contact-id="${contactId}"]`);
+        if (contactItem) {
+            // 更新最后一条消息
+            const lastMsgDiv = contactItem.querySelector('.contact-last-message');
+            if (lastMsgDiv) {
+                // 如果是群聊，可能需要处理昵称，这里简单显示内容
+                lastMsgDiv.textContent = content;
+            }
+            
+            // 移动到列表顶部
+            const parent = contactItem.parentNode;
+            if (parent && parent.firstElementChild !== contactItem) {
+                parent.insertBefore(contactItem, parent.firstElementChild);
+            }
+        }
+    }
+    
+    // 监听系统通知
+    ws.onSystemNotice(message => {
+        alert(`系统通知: ${message.messageContent}`);
+        loadContacts();
+    });
+
+    // 监听好友请求
+    ws.onFriendRequest(message => {
+        alert(`收到来自 ${message.sendUserNickName} 的好友请求: ${message.messageContent}`);
+        loadContacts();
+    });
 });
 
 // 添加CSS样式
