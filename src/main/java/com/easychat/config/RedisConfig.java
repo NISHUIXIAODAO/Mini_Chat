@@ -29,8 +29,7 @@ public class RedisConfig {
             Config config = new Config();
             config.useSingleServer().setAddress("redis://" + redisHost + ":" + redisPort);
             //todo 这里要加上setPassword()给Redisson也配置上密码，不然后面test请求会报错
-            RedissonClient redissonClient = Redisson.create(config);
-            return redissonClient;
+            return Redisson.create(config);
         }catch (Exception e){
             logger.info("redisson配置错误",e);
         }
