@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 @ChannelHandler.Sharable
 public class NettyWebSocketStarter {
-    @Value("${ws.port:}")
+    @Value("${ws.port:5051}")
     private Integer wsPort;
 
     //建立连接 boss线程

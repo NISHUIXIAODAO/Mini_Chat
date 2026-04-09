@@ -20,6 +20,7 @@ import com.easychat.service.IJWTService;
 import com.easychat.service.IRedisService;
 import com.easychat.utils.CopyTools;
 import com.easychat.utils.SessionIdUtils;
+import com.easychat.webSocket.ChannelContextUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +34,9 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import cn.hutool.http.HttpRequest;
+import java.net.InetAddress;
+import org.springframework.beans.factory.annotation.Value;
 import static com.easychat.enums.MessageStatusEnum.SENDING;
 import static com.easychat.enums.MessageStatusEnum.SEND_ED;
 import static com.easychat.utils.ConstantUtils.*;
@@ -66,6 +70,22 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     private KafkaMessageProducer kafkaMessageProducer;
     @Autowired
     private AIService aiService;
+
+    @Autowired
+    private ChannelContextUtils channelContextUtils;
+
+    @Value("${server.port:5050}")
+    private String serverPort;
+
+    private String localIp;
+
+    public ChatMessageServiceImpl() {
+        try {
+            localIp = InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception e) {
+            localIp = "127.0.0.1";
+        }
+    }
 
     @Override
     public MessageSendDTO saveMessage(ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response) {
@@ -137,7 +157,10 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         chatMessageMapper.insert(chatMessage);
 
         MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
-        kafkaMessageProducer.sendMessage(messageSendDTO);
+        
+        // 改造：使用精准推送代替 Kafka 广播
+        // kafkaMessageProducer.sendMessage(messageSendDTO);
+        pushMessageToUser(contactId, messageSendDTO);
 
     // 机器人自动回复
         if (ROBOT_ID.equals(contactId)) {
@@ -237,13 +260,65 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
                 // 4. 更新会话表的最后一条消息
                 chatSessionMapper.updateBySessionId(sessionId, aiReply, System.currentTimeMillis());
 
-                // 5. 发送 Kafka 消息 (推送到前端)
+                // 5. 推送消息 (精准推送)
                 MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
-                kafkaMessageProducer.sendMessage(messageSendDTO);
+                // kafkaMessageProducer.sendMessage(messageSendDTO);
+                pushMessageToUser(userContactId, messageSendDTO);
 
             } catch (Exception e) {
                 logger.error("机器人回复失败", e);
             }
         });
+    }
+
+    /**
+     * 精准推送消息
+     */
+    private void pushMessageToUser(Integer userId, MessageSendDTO message) {
+        try {
+            // 1. 从 Redis 获取用户所在的服务器地址 (ip:port)
+            String targetAddress = redisService.getUserLocation(userId);
+            
+            logger.info("准备推送消息给用户: {}, Redis记录地址: {}, 本机地址: {}:{}", userId, targetAddress, localIp, serverPort);
+            
+            if (targetAddress == null) {
+                // 用户不在线，无需推送
+                logger.info("用户 {} 不在线 (Redis无位置记录)", userId);
+                return;
+            }
+
+            // 解析 IP 和 端口
+            String[] parts = targetAddress.split(":");
+            String targetIp = parts[0];
+            String targetPort = parts.length > 1 ? parts[1] : "5050";
+
+            // 2. 判断是否为本机
+            // 必须同时匹配 IP 和 端口
+            boolean isLocalIp = targetIp.equals(localIp) || targetIp.equals("127.0.0.1") || targetIp.equals("localhost");
+            boolean isLocalPort = targetPort.equals(serverPort);
+
+            if (isLocalIp && isLocalPort) {
+                // 是本机，直接推送
+                logger.info("目标用户在【本机】，直接通过WebSocket推送");
+                channelContextUtils.sendMessage(message);
+            } else {
+                // 3. 如果是其他机器，调用内部 HTTP 接口推送
+                String url = "http://" + targetIp + ":" + targetPort + "/internal/push";
+                logger.info("目标用户在【远程节点】({}:{})，发起HTTP转发: {}", targetIp, targetPort, url);
+                
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        HttpRequest.post(url)
+                                .body(cn.hutool.json.JSONUtil.toJsonStr(message))
+                                .timeout(2000) // 2秒超时
+                                .execute();
+                    } catch (Exception e) {
+                        logger.error("HTTP转发消息失败", e);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            logger.error("消息推送失败", e);
+        }
     }
 }

@@ -13,9 +13,14 @@ import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.net.InetAddress;
 
 
 @Slf4j
@@ -28,6 +33,29 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
     private IRedisService redisService;
     @Autowired
     private ChannelContextUtils channelContextUtils;
+    @Autowired
+    private Environment environment;
+//
+//    private String serverIp;
+//    private String serverPort;
+//
+//    @PostConstruct
+//    public void init() {
+//        try {
+//            serverIp = InetAddress.getLocalHost().getHostAddress();
+//            // 优先读取 System Property (支持 -Dserver.port=xxxx)
+//            String sysPort = System.getProperty("server.port");
+//            if (sysPort != null && !sysPort.isEmpty()) {
+//                serverPort = sysPort;
+//            } else {
+//                serverPort = environment.getProperty("server.port", "5050");
+//            }
+//        } catch (Exception e) {
+//            serverIp = "127.0.0.1";
+//            serverPort = "5050";
+//            log.error("获取服务器IP失败", e);
+//        }
+//    }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -43,7 +71,17 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         log.info("有连接断开");
-        channelContextUtils.removeContext(ctx.channel());
+        Channel channel = ctx.channel();
+        // 尝试从 Channel 属性中获取 userId
+        Attribute<Integer> attribute = channel.attr(AttributeKey.valueOf(channel.id().toString()));
+        Integer userId = attribute.get();
+        
+        if (userId != null) {
+            log.info("用户 {} 下线，清理Redis位置信息", userId);
+            redisService.removeUserLocation(userId);
+        }
+        
+        channelContextUtils.removeContext(channel);
     }
 
     //通道就绪后，通道有连接就会触发，一般用于初始化
@@ -78,7 +116,16 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
             /**
              * 建立用户自己的 channel 通过 addContext 方法 将用户 ID和管道绑定
              */
-            channelContextUtils.addContext(jwtService.getUserId(token),ctx.channel());
+            Integer userId = jwtService.getUserId(token);
+            channelContextUtils.addContext(userId,ctx.channel());
+
+            String serverIp = InetAddress.getLocalHost().getHostAddress();
+            String serverPort = environment.getProperty("server.port");
+            // 注册用户位置信息到 Redis
+            String address = serverIp + ":" + serverPort;
+            redisService.saveUserLocation(userId, address);
+            log.info("用户 {} 上线，注册位置信息: {}", userId, address);
+            
             log.info("");
         }
     }
