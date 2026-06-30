@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * <p>
@@ -42,4 +43,7 @@ public interface UserInfoMapper extends BaseMapper<UserInfo> {
     String getPasswordById(@Param("userId") Integer userId);
     @Select("select last_off_time from user_info where user_id = #{userId}")
     Long getLastOffTimeById(@Param("userId") Integer userId);
+
+    @Select("select email from user_info")
+    List<String> getAllEmails();
 }
