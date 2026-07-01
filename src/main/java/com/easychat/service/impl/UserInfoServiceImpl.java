@@ -41,6 +41,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
 //    @Autowired
     private final UserInfoMapper userInfoMapper;
+    private final IUserEmailBloomService userEmailBloomService;
     @Autowired
     private JavaMailSenderImpl mailSender;
     @Autowired
@@ -63,6 +64,9 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
         //查询用户是否存在
         //根据邮箱查询用户ID
+        if (!userEmailBloomService.mightContain(loginDTO.getEmail())) {
+            return ResultVo.failed("没有此用户");
+        }
         Integer userId = userInfoMapper.getUserIdByEmail(loginDTO.getEmail());
         if (userId == null) {
             return ResultVo.failed("没有此用户");
@@ -152,6 +156,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         userInfoMapper.insert(user);
         //获取注册用户的ID
         userId = userInfoMapper.getUserIdByEmail(registerDTO.getEmail());
+        userEmailBloomService.add(registerDTO.getEmail());
         //创建机器人好友
         userContactService.addContact4Robot(userId);
 
