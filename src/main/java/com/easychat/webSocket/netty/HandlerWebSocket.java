@@ -1,7 +1,7 @@
 package com.easychat.webSocket.netty;
 
 import com.easychat.service.IRedisService;
-import com.easychat.service.impl.JWTServiceImpl;
+import com.easychat.service.IJWTService;
 import com.easychat.webSocket.ChannelContextUtils;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
@@ -28,7 +28,7 @@ import java.net.InetAddress;
 @ChannelHandler.Sharable
 public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketFrame> {
     @Resource
-    private JWTServiceImpl jwtService;
+    private IJWTService jwtService;
     @Autowired
     private IRedisService redisService;
     @Autowired
@@ -107,7 +107,6 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
             String url = complete.requestUri();
             log.info("Url:{}",url);
             String token = getToken(url);
-            log.info("token:{}", token);
             if (token == null || !jwtService.verifyToken(token)) {
                 log.info("token有误");
                 ctx.channel().close();

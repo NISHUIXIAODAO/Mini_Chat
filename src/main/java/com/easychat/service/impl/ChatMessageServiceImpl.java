@@ -89,7 +89,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
 
     @Override
     public MessageSendDTO saveMessage(ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response) {
-        String token = request.getHeader("authorization");
+        String token = jwtService.extractToken(request);
         Integer userId = jwtService.getUserId(token);
         String sendUserNickName = userInfoMapper.getNickNameByUserId(userId);
         Integer contactId = chatSendMessageDTO.getContactId();
@@ -175,7 +175,7 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     
     @Override
     public List<MessageHistoryResponseDTO> getMessageHistory(GetMessageHistoryDTO getMessageHistoryDTO, HttpServletRequest request) {
-        String token = request.getHeader("authorization");
+        String token = jwtService.extractToken(request);
         Integer userId = jwtService.getUserId(token);
         
         List<ChatMessage> messageList;

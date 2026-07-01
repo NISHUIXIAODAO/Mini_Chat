@@ -5,6 +5,7 @@ import com.easychat.entity.ResultVo;
 import com.easychat.entity.DTO.request.LoginDTO;
 import com.easychat.entity.DTO.request.RegisterDTO;
 import com.easychat.kafka.KafkaMessageProducer;
+import com.easychat.service.IJWTService;
 import com.easychat.service.IUserInfoService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,8 @@ public class UserInfoController {
     private IUserInfoService iUserInfoService;
     @Resource
     private KafkaMessageProducer kafkaMessageProducer;
+    @Autowired
+    private IJWTService jwtService;
 
 
     @PostMapping("/login")
@@ -41,6 +44,15 @@ public class UserInfoController {
         }
         return ResultVo.failed("发生错误");
     }
+
+    @PostMapping("/logout")
+    public ResultVo<Object> logout(HttpServletRequest request){
+        String token = jwtService.extractToken(request);
+        // 主动退出时将当前 token 拉黑，直到 JWT 自身过期为止。
+        jwtService.blacklistToken(token);
+        return ResultVo.success("退出登录成功");
+    }
+
     @PostMapping("/register")
     public ResultVo<Object> register(@RequestBody RegisterDTO registerDTO, HttpServletResponse response, HttpServletRequest request){
         try{
