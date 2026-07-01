@@ -325,7 +325,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
         if (groupInfo == null) {
             throw new GlobalExceptionHandler.BusinessException("群聊不存在");
         }
-        String applyUserToken = request.getHeader("token");
+        String applyUserToken = jwtService.extractToken(request);
         //申请人ID (通过token拿到ID)
         Integer applyUserId = jwtService.getUserId(applyUserToken);
         Long curTime = System.currentTimeMillis();
@@ -392,7 +392,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
 
     @Override
     public ResultVo<Object> getContactList(HttpServletRequest request, HttpServletResponse response) {
-        String userToken = request.getHeader("authorization");
+        String userToken = jwtService.extractToken(request);
         //申请人ID (通过token拿到ID)
         Integer userId = jwtService.getUserId(userToken);
 
@@ -471,7 +471,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
     public ResultVo<Object> disposeApply(DisposeApplyDTO disposeApplyDTO, HttpServletRequest request, HttpServletResponse response) {
         Integer applyUserId = disposeApplyDTO.getApplyUserId();
         Integer status = disposeApplyDTO.getStatus();
-        String token = request.getHeader("token");
+        String token = jwtService.extractToken(request);
 
         Integer receiveUserId = jwtService.getUserId(token);
         Integer groupId = groupInfoMapper.getGroupIdByOwnerId(receiveUserId);

@@ -1,6 +1,7 @@
 package com.easychat.controller;
 
 import com.easychat.entity.DTO.response.UserApplyListResponseDTO;
+import com.easychat.service.IJWTService;
 import com.easychat.service.IUserContactApplyService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,11 +28,13 @@ import java.util.List;
 public class UserContactApplyController {
     @Autowired
     private IUserContactApplyService userContactApplyService;
+    @Autowired
+    private IJWTService jwtService;
 
     @GetMapping("/getApplyList")
     public List<UserApplyListResponseDTO> getApplyList(HttpServletRequest request){
         try{
-            return userContactApplyService.getApplyList(request.getHeader("authorization"));
+            return userContactApplyService.getApplyList(jwtService.extractToken(request));
         }catch (Exception e){
             log.error("获取好友申请错误：{}",e);
         }

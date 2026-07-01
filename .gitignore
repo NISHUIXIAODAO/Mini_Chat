@@ -1,4 +1,5 @@
 /target/
+backend/target/
 !.mvn/wrapper/maven-wrapper.jar
 .idea/
 *.iws
@@ -6,3 +7,26 @@
 *.ipr
 logs/
 *.log
+
+# Local project notes and generated reports
+documents/
+changes-summary.md
+
+# Frontend dependencies and build output
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
+# Local package-manager helper files
+frontend/pnpm-workspace.yaml
+
+# Environment and secret files
+.env
+.env.*
+*.local
+
+# OS and tool cache files
+.DS_Store
+Thumbs.db
+.trae/

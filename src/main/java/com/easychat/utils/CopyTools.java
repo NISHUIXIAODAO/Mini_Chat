@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 public class CopyTools {
     public static MessageSendDTO copy(ChatMessage chatMessage){
         MessageSendDTO messageSendDTO = new MessageSendDTO();
-        messageSendDTO.setSessionId(chatMessage.getSessionId())
+        messageSendDTO.setMessageId(chatMessage.getMessageId())
+                .setSessionId(chatMessage.getSessionId())
                 .setMessageType(chatMessage.getMessageType())
                 .setMessageContent(chatMessage.getMessageContent())
                 .setSendUserId(chatMessage.getSendUserId())

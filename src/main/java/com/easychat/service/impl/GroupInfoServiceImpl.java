@@ -70,7 +70,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
                              HttpServletRequest request,
                              HttpServletResponse response) {
         //通过解析token，获得群主id
-        String token = request.getHeader("token");
+        String token = jwtService.extractToken(request);
         Integer userId = jwtService.getUserId(token);
 
         //添加群组信息

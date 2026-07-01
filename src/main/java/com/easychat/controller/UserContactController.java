@@ -3,6 +3,7 @@ package com.easychat.controller;
 import com.easychat.entity.DTO.request.ApplyGroupAddDTO;
 import com.easychat.entity.DTO.request.DisposeApplyDTO;
 import com.easychat.entity.ResultVo;
+import com.easychat.service.IJWTService;
 import com.easychat.service.IUserContactService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,8 @@ import javax.servlet.http.HttpServletResponse;
 public class UserContactController {
     @Autowired
     private IUserContactService iUserContactService;
+    @Autowired
+    private IJWTService jwtService;
 
     @GetMapping("/getContactList")
     public ResultVo<Object> getContactList(HttpServletRequest request, HttpServletResponse response) {
@@ -39,7 +42,7 @@ public class UserContactController {
     @PostMapping("/applyFriendAdd")
     public ResultVo<Object> applyFriendAdd(HttpServletRequest request, Integer contactId, String applyInfo) {
         try {
-            return iUserContactService.applyFriendAdd(request.getHeader("token"), contactId, applyInfo);
+            return iUserContactService.applyFriendAdd(jwtService.extractToken(request), contactId, applyInfo);
         } catch (Exception e) {
             log.error("错误：{}", e);
         }
