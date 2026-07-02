@@ -3,7 +3,6 @@ package com.easychat.controller;
 import com.easychat.entity.ResultVo;
 import com.easychat.entity.DTO.request.SetGroupDTO;
 import com.easychat.service.IGroupInfoService;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,7 +22,6 @@ import javax.servlet.http.HttpServletResponse;
  */
 @RestController
 @RequestMapping("/groupInfo")
-@Slf4j
 public class GroupInfoController {
 
     @Autowired
@@ -32,13 +30,8 @@ public class GroupInfoController {
     @PostMapping("/setGroup")
     public ResultVo setGroup(@RequestBody SetGroupDTO setGroupDTO,
                              HttpServletRequest request,
-                             HttpServletResponse response){
-        try{
-            return iGroupInfoService.setGroup(setGroupDTO,request,response);
-        }catch (Exception e){
-            log.info("错误：{}",e);
-        }
-        return null;
+                             HttpServletResponse response) {
+        return iGroupInfoService.setGroup(setGroupDTO, request, response);
     }
 
 }

@@ -40,6 +40,14 @@ public class ResultVo<T> {
         return new ResultVo(ErrorCodeEnum.FAILED.getCode(), message, null);
     }
 
+    public static <T> ResultVo<T> failed(Integer code, String message) {
+        return new ResultVo(code, message, null);
+    }
+
+    public static <T> ResultVo<T> failed(Integer code, String message, T data) {
+        return new ResultVo(code, message, data);
+    }
+
     public static <T> ResultVo<T> failed(T data) {
         return new ResultVo(ErrorCodeEnum.FAILED.getCode(), "failed", null);
     }

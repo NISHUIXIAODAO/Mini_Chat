@@ -1,17 +1,15 @@
 package com.easychat.controller;
 
 import com.easychat.entity.DTO.response.UserApplyListResponseDTO;
+import com.easychat.entity.ResultVo;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IUserContactApplyService;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
 /**
@@ -22,7 +20,6 @@ import java.util.List;
  * @author my
  * @since 2025-03-03
  */
-@Slf4j
 @RestController
 @RequestMapping("/userContactApply")
 public class UserContactApplyController {
@@ -32,13 +29,8 @@ public class UserContactApplyController {
     private IJWTService jwtService;
 
     @GetMapping("/getApplyList")
-    public List<UserApplyListResponseDTO> getApplyList(HttpServletRequest request){
-        try{
-            return userContactApplyService.getApplyList(jwtService.extractToken(request));
-        }catch (Exception e){
-            log.error("获取好友申请错误：{}",e);
-        }
-        return null;
+    public ResultVo<List<UserApplyListResponseDTO>> getApplyList(HttpServletRequest request) {
+        return ResultVo.success(userContactApplyService.getApplyList(jwtService.extractToken(request)));
     }
 
 }

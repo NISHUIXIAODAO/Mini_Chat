@@ -7,7 +7,6 @@ import com.easychat.entity.DTO.request.RegisterDTO;
 import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IUserInfoService;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,7 +24,6 @@ import javax.servlet.http.HttpServletResponse;
  */
 @RestController
 @RequestMapping("/userInfo")
-@Slf4j
 public class UserInfoController {
     @Autowired
     private IUserInfoService iUserInfoService;
@@ -36,13 +34,8 @@ public class UserInfoController {
 
 
     @PostMapping("/login")
-    public ResultVo<Object> login(@RequestBody LoginDTO loginDTO, HttpServletResponse response, HttpServletRequest request){
-        try{
-            return iUserInfoService.login(loginDTO,response,request);
-        }catch (Exception e){
-            log.info("错误：{}",e);
-        }
-        return ResultVo.failed("发生错误");
+    public ResultVo<Object> login(@RequestBody LoginDTO loginDTO, HttpServletResponse response, HttpServletRequest request) {
+        return iUserInfoService.login(loginDTO, response, request);
     }
 
     @PostMapping("/logout")
@@ -54,24 +47,13 @@ public class UserInfoController {
     }
 
     @PostMapping("/register")
-    public ResultVo<Object> register(@RequestBody RegisterDTO registerDTO, HttpServletResponse response, HttpServletRequest request){
-        try{
-
-            return iUserInfoService.register(registerDTO,response,request);
-        }catch (Exception e){
-            log.info("错误：{}",e);
-        }
-        return ResultVo.failed("发生错误");
+    public ResultVo<Object> register(@RequestBody RegisterDTO registerDTO, HttpServletResponse response, HttpServletRequest request) {
+        return iUserInfoService.register(registerDTO, response, request);
     }
 
     @GetMapping("/sendCode")
-    public ResultVo<Object> sendCode(String email, HttpServletResponse response, HttpServletRequest request){
-        try{
-            return iUserInfoService.sendCode(email,response,request);
-        }catch (Exception e){
-            log.info("错误：{}",e);
-        }
-        return ResultVo.failed("发生错误：验证码发送失败");
+    public ResultVo<Object> sendCode(String email, HttpServletResponse response, HttpServletRequest request) {
+        return iUserInfoService.sendCode(email, response, request);
     }
 
 }
