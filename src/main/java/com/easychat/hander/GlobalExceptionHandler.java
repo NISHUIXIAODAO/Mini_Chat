@@ -1,6 +1,6 @@
 package com.easychat.hander;
 
-import lombok.Data;
+import com.easychat.entity.ResultVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
@@ -21,47 +21,27 @@ import java.util.Set;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // ------------------------- 错误响应实体类 -------------------------
-    @Data
-    public static class ErrorResponse<T> {
-        private long timestamp;
-        private int status;
-        private String error;
-        private String message;
-        private String path;
-        private T details;
-
-        public ErrorResponse(int status, String error, String message, String path, T details) {
-            this.timestamp = System.currentTimeMillis();
-            this.status = status;
-            this.error = error;
-            this.message = message;
-            this.path = path;
-            this.details = details;
-        }
-    }
-
     // ------------------------- 自定义异常基类 -------------------------
     public static class BusinessException extends RuntimeException {
         private final ErrorCode errorCode;
         private final String message;
 
         public BusinessException(ErrorCode errorCode) {
-            super(errorCode.getMessage());
-            this.errorCode = errorCode;
-            this.message = errorCode.getMessage();
+            super(resolveErrorCode(errorCode).getMessage());
+            this.errorCode = resolveErrorCode(errorCode);
+            this.message = this.errorCode.getMessage();
         }
 
         public BusinessException(ErrorCode errorCode, String message) {
             super(message);
-            this.errorCode = errorCode;
+            this.errorCode = resolveErrorCode(errorCode);
             this.message = message;
         }
 
         public BusinessException(String message){
             super(message);
             this.message = message;
-            this.errorCode = null;
+            this.errorCode = ErrorCode.BAD_REQUEST;
         }
 
         public ErrorCode getErrorCode() {
@@ -71,6 +51,10 @@ public class GlobalExceptionHandler {
         @Override
         public String getMessage() {
             return message;
+        }
+
+        private static ErrorCode resolveErrorCode(ErrorCode errorCode) {
+            return errorCode == null ? ErrorCode.BAD_REQUEST : errorCode;
         }
     }
 
@@ -122,15 +106,10 @@ public class GlobalExceptionHandler {
     // 处理业务异常（默认返回400）
     @ExceptionHandler(BusinessException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse<Object> handleBusinessException(BusinessException ex, HttpServletRequest request) {
-        log.info("业务异常: [{}] {}", ex.getErrorCode().getCode(), ex.getMessage());
-        return new ErrorResponse<>(
-                ex.getErrorCode().getCode(),
-                "Business Error",
-                ex.getMessage(),
-                request.getRequestURI(),
-                null
-        );
+    public ResultVo<Object> handleBusinessException(BusinessException ex, HttpServletRequest request) {
+        ErrorCode errorCode = ex.getErrorCode();
+        log.info("业务异常: [{}] {} - {}", errorCode.getCode(), request.getRequestURI(), ex.getMessage());
+        return ResultVo.failed(errorCode.getCode(), ex.getMessage());
     }
 
     // 处理登录相关认证异常（返回401）
@@ -140,21 +119,15 @@ public class GlobalExceptionHandler {
             UserNotFoundException.class
     })
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ErrorResponse<Object> handleAuthExceptions(BusinessException ex, HttpServletRequest request) {
+    public ResultVo<Object> handleAuthExceptions(BusinessException ex, HttpServletRequest request) {
         log.info("认证失败: {} - {}", request.getRequestURI(), ex.getMessage());
-        return new ErrorResponse<>(
-                ex.getErrorCode().getCode(),
-                "Authentication Error",
-                ex.getMessage(),
-                request.getRequestURI(),
-                null
-        );
+        return ResultVo.failed(ex.getErrorCode().getCode(), ex.getMessage());
     }
 
     // 处理参数校验异常（@RequestBody）
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse<Map<String, String>> handleMethodArgumentNotValidException(
+    public ResultVo<Map<String, String>> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
@@ -169,7 +142,7 @@ public class GlobalExceptionHandler {
     // 处理参数校验异常（@RequestParam/@PathVariable）
     @ExceptionHandler(ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse<Map<String, String>> handleConstraintViolationException(
+    public ResultVo<Map<String, String>> handleConstraintViolationException(
             ConstraintViolationException ex, HttpServletRequest request) {
         Map<String, String> errors = new HashMap<>();
         Set<ConstraintViolation<?>> violations = ex.getConstraintViolations();
@@ -185,29 +158,17 @@ public class GlobalExceptionHandler {
     // 处理权限不足异常（返回403）
     @ExceptionHandler(AccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ErrorResponse<Object> handleAccessDeniedException(HttpServletRequest request) {
+    public ResultVo<Object> handleAccessDeniedException(HttpServletRequest request) {
         log.info("拒绝访问: {}", request.getRequestURI());
-        return new ErrorResponse<>(
-                ErrorCode.FORBIDDEN.getCode(),
-                "Access Denied",
-                ErrorCode.FORBIDDEN.getMessage(),
-                request.getRequestURI(),
-                null
-        );
+        return ResultVo.failed(ErrorCode.FORBIDDEN.getCode(), ErrorCode.FORBIDDEN.getMessage());
     }
 
     // 处理其他未捕获异常（返回500）
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ErrorResponse<Object> handleAllExceptions(Exception ex, HttpServletRequest request) {
+    public ResultVo<Object> handleAllExceptions(Exception ex, HttpServletRequest request) {
         log.info("系统异常: {}", ex.getMessage(), ex);
-        return new ErrorResponse<>(
-                ErrorCode.INTERNAL_SERVER_ERROR.getCode(),
-                "Internal Server Error",
-                "系统繁忙，请稍后再试",
-                request.getRequestURI(),
-                null
-        );
+        return ResultVo.failed(ErrorCode.INTERNAL_SERVER_ERROR.getCode(), "系统繁忙，请稍后再试");
     }
 
     // ------------------------- 自定义异常类 -------------------------
@@ -248,13 +209,11 @@ public class GlobalExceptionHandler {
     }
 
     // ------------------------- 工具方法 -------------------------
-    private ErrorResponse<Map<String, String>> buildValidationErrorResponse(
+    private ResultVo<Map<String, String>> buildValidationErrorResponse(
             HttpServletRequest request, Map<String, String> errors) {
-        return new ErrorResponse<>(
+        return ResultVo.failed(
                 ErrorCode.VALIDATION_FAILED.getCode(),
-                "Validation Error",
                 ErrorCode.VALIDATION_FAILED.getMessage(),
-                request.getRequestURI(),
                 errors
         );
     }

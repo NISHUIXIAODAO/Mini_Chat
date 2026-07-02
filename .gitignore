@@ -17,6 +17,7 @@ node_modules/
 frontend/node_modules/
 dist/
 frontend/dist/
+frontend/.vite/
 
 # Local package-manager helper files
 frontend/pnpm-workspace.yaml
