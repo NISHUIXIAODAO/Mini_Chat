@@ -2,7 +2,6 @@ package com.easychat;
 
 import com.easychat.webSocket.netty.NettyWebSocketStarter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -13,11 +12,13 @@ import java.sql.SQLException;
 @Component("initRun")
 @Slf4j
 public class InitRun implements ApplicationRunner {
-    @Autowired
-    private DataSource dataSource;
+    private final DataSource dataSource;
+    private final NettyWebSocketStarter nettyWebSocketStarter;
 
-    @Autowired
-    private NettyWebSocketStarter nettyWebSocketStarter;
+    public InitRun(DataSource dataSource, NettyWebSocketStarter nettyWebSocketStarter) {
+        this.dataSource = dataSource;
+        this.nettyWebSocketStarter = nettyWebSocketStarter;
+    }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {

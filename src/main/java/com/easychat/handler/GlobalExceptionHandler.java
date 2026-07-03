@@ -1,4 +1,4 @@
-package com.easychat.hander;
+package com.easychat.handler;
 
 import com.easychat.entity.ResultVo;
 import lombok.extern.slf4j.Slf4j;

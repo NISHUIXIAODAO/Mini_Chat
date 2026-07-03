@@ -21,7 +21,6 @@ import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -34,18 +33,27 @@ import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
 @Component
 @Slf4j
 public class ChannelContextUtils {
-    @Autowired
-    private IRedisService redisService;
-    @Autowired
-    private UserInfoMapper userInfoMapper;
-    @Autowired
-    private ChatSessionUserMapper chatSessionUserMapper;
-    @Autowired
-    private ChatMessageMapper chatMessageMapper;
-    @Autowired
-    private UserContactApplyMapper userContactApplyMapper;
-    @Autowired
-    private UserContactMapper userContactMapper;
+    private final IRedisService redisService;
+    private final UserInfoMapper userInfoMapper;
+    private final ChatSessionUserMapper chatSessionUserMapper;
+    private final ChatMessageMapper chatMessageMapper;
+    private final UserContactApplyMapper userContactApplyMapper;
+    private final UserContactMapper userContactMapper;
+
+    public ChannelContextUtils(IRedisService redisService,
+                               UserInfoMapper userInfoMapper,
+                               ChatSessionUserMapper chatSessionUserMapper,
+                               ChatMessageMapper chatMessageMapper,
+                               UserContactApplyMapper userContactApplyMapper,
+                               UserContactMapper userContactMapper) {
+        this.redisService = redisService;
+        this.userInfoMapper = userInfoMapper;
+        this.chatSessionUserMapper = chatSessionUserMapper;
+        this.chatMessageMapper = chatMessageMapper;
+        this.userContactApplyMapper = userContactApplyMapper;
+        this.userContactMapper = userContactMapper;
+    }
+
     // todo 单机无法满足，可以用 redis
     private static final ConcurrentHashMap<Integer,Channel> User_Context_Map = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Integer,ChannelGroup> Group_Context_Map = new ConcurrentHashMap<>();

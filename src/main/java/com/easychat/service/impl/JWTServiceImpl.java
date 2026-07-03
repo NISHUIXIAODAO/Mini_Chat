@@ -6,7 +6,6 @@ import com.easychat.service.IJWTService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -23,11 +22,8 @@ import java.util.concurrent.TimeUnit;
 @Component
 @Slf4j
 public class JWTServiceImpl implements IJWTService {
-    @Autowired
-    private UserInfoMapper userInfoMapper;
-
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final UserInfoMapper userInfoMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -37,6 +33,11 @@ public class JWTServiceImpl implements IJWTService {
 
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String TOKEN_BLACKLIST_PREFIX = "jwt:blacklist:";
+
+    public JWTServiceImpl(UserInfoMapper userInfoMapper, RedisTemplate<String, Object> redisTemplate) {
+        this.userInfoMapper = userInfoMapper;
+        this.redisTemplate = redisTemplate;
+    }
 
     /***
      * 生成 token

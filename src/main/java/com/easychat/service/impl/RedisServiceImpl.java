@@ -2,10 +2,10 @@ package com.easychat.service.impl;
 
 import com.easychat.service.IRedisService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -16,8 +16,11 @@ import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
 @Slf4j
 public class RedisServiceImpl implements IRedisService {
 
-    @Autowired
-    private RedisTemplate redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    public RedisServiceImpl(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     /***
      * 生成 Redis Key值 通过用户ID
@@ -102,7 +105,21 @@ public class RedisServiceImpl implements IRedisService {
      * @return
      */
     public List<Integer> getUserContactList(String userKey){
-        return redisTemplate.opsForList().range(userKey,0,-1);
+        List<Object> contactList = redisTemplate.opsForList().range(userKey,0,-1);
+        List<Integer> result = new ArrayList<>();
+        if (contactList == null) {
+            return result;
+        }
+        for (Object contactId : contactList) {
+            if (contactId instanceof Integer) {
+                result.add((Integer) contactId);
+            } else if (contactId instanceof Number) {
+                result.add(((Number) contactId).intValue());
+            } else if (contactId instanceof String) {
+                result.add(Integer.valueOf((String) contactId));
+            }
+        }
+        return result;
     }
 
     @Override

@@ -15,7 +15,6 @@ import com.easychat.utils.CopyTools;
 import com.easychat.webSocket.ChannelContextUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
@@ -39,23 +38,14 @@ import static com.easychat.utils.SessionIdUtils.generateSessionId;
 @Slf4j
 @RequiredArgsConstructor
 public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo> implements IGroupInfoService {
-    @Autowired
-    private IJWTService jwtService;
-    @Autowired
-    private UserContactMapper userContactMapper;
-    @Autowired
-    private ChatSessionMapper chatSessionMapper;
-    @Autowired
-    private ChatSessionUserMapper chatSessionUserMapper;
-    @Autowired
-    private IRedisService redisService;
-    @Autowired
-    private ChannelContextUtils channelContextUtils;
-    @Autowired
-    private ChatMessageMapper chatMessageMapper;
-    @Autowired
-    private KafkaMessageProducer kafkaMessageProducer;
-
+    private final IJWTService jwtService;
+    private final UserContactMapper userContactMapper;
+    private final ChatSessionMapper chatSessionMapper;
+    private final ChatSessionUserMapper chatSessionUserMapper;
+    private final IRedisService redisService;
+    private final ChannelContextUtils channelContextUtils;
+    private final ChatMessageMapper chatMessageMapper;
+    private final KafkaMessageProducer kafkaMessageProducer;
     private final GroupInfoMapper groupInfoMapper;
 
     /***
