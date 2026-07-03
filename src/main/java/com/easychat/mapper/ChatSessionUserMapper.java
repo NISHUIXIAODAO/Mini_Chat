@@ -39,6 +39,6 @@ public interface ChatSessionUserMapper extends BaseMapper<ChatSessionUser> {
     @Select("select user_id , contact_id from chat_session_user where user_id = #{applyUserId} and contact_id = #{receiveUserId}")
     ChatSessionUser boolByUserIdAndContactId(@Param("applyUserId") Integer applyUserId,@Param("receiveUserId") Integer receiveUserId);
 
-    @Update("update chat_session_user set nick_name = #{nickName} where user_id = #{applyUserId} and contact_id = #{receiveUserId}")
+    @Update("update chat_session_user set contact_name = #{nickName} where user_id = #{applyUserId} and contact_id = #{receiveUserId}")
     void updateByUserIdAndContactId(@Param("applyUserId") Integer applyUserId,@Param("receiveUserId") Integer receiveUserId ,@Param("nickName") String nickName);
 }

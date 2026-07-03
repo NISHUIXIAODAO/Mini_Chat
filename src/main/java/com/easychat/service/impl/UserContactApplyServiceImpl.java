@@ -3,12 +3,11 @@ package com.easychat.service.impl;
 import com.easychat.entity.DO.UserContactApply;
 import com.easychat.entity.DTO.response.UserApplyListResponseDTO;
 import com.easychat.mapper.UserContactApplyMapper;
+import com.easychat.service.IJWTService;
 import com.easychat.service.IUserContactApplyService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,10 +23,13 @@ import java.util.List;
 @Service
 public class UserContactApplyServiceImpl extends ServiceImpl<UserContactApplyMapper, UserContactApply> implements IUserContactApplyService {
 
-    @Autowired
-    private JWTServiceImpl jwtService;
-    @Autowired
-    private UserContactApplyMapper userContactApplyMapper;
+    private final IJWTService jwtService;
+    private final UserContactApplyMapper userContactApplyMapper;
+
+    public UserContactApplyServiceImpl(IJWTService jwtService, UserContactApplyMapper userContactApplyMapper) {
+        this.jwtService = jwtService;
+        this.userContactApplyMapper = userContactApplyMapper;
+    }
 
     /***
      * 获取好友申请列表

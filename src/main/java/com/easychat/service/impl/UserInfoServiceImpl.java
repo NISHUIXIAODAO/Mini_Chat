@@ -10,10 +10,8 @@ import com.easychat.service.*;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpServletRequest;
@@ -39,17 +37,12 @@ import static com.easychat.utils.SessionIdUtils.md5;
 @RequiredArgsConstructor
 public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> implements IUserInfoService {
 
-//    @Autowired
     private final UserInfoMapper userInfoMapper;
     private final IUserEmailBloomService userEmailBloomService;
-    @Autowired
-    private JavaMailSenderImpl mailSender;
-    @Autowired
-    private IJWTService jwtService;
-    @Autowired
-    private IRedisService redisService;
-    @Autowired
-    private IUserContactService userContactService;
+    private final JavaMailSender mailSender;
+    private final IJWTService jwtService;
+    private final IRedisService redisService;
+    private final IUserContactService userContactService;
 
 
     /***

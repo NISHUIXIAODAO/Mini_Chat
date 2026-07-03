@@ -6,15 +6,16 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import javax.annotation.Resource;
-
 /***
  * 全局请求拦截器
  */
 @Configuration
 public class InterceptorConfig implements WebMvcConfigurer {
-    @Resource
-    private Interceptor interceptor;
+    private final Interceptor interceptor;
+
+    public InterceptorConfig(Interceptor interceptor) {
+        this.interceptor = interceptor;
+    }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {

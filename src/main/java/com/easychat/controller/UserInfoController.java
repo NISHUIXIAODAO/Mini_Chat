@@ -1,16 +1,12 @@
 package com.easychat.controller;
 
-import com.easychat.entity.DTO.request.MessageSendDTO;
-import com.easychat.entity.ResultVo;
 import com.easychat.entity.DTO.request.LoginDTO;
 import com.easychat.entity.DTO.request.RegisterDTO;
-import com.easychat.kafka.KafkaMessageProducer;
+import com.easychat.entity.ResultVo;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IUserInfoService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -25,13 +21,13 @@ import javax.servlet.http.HttpServletResponse;
 @RestController
 @RequestMapping("/userInfo")
 public class UserInfoController {
-    @Autowired
-    private IUserInfoService iUserInfoService;
-    @Resource
-    private KafkaMessageProducer kafkaMessageProducer;
-    @Autowired
-    private IJWTService jwtService;
+    private final IUserInfoService iUserInfoService;
+    private final IJWTService jwtService;
 
+    public UserInfoController(IUserInfoService iUserInfoService, IJWTService jwtService) {
+        this.iUserInfoService = iUserInfoService;
+        this.jwtService = jwtService;
+    }
 
     @PostMapping("/login")
     public ResultVo<Object> login(@RequestBody LoginDTO loginDTO, HttpServletResponse response, HttpServletRequest request) {

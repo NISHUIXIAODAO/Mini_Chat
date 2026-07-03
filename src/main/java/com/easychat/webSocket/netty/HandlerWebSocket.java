@@ -12,14 +12,9 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
 import java.net.InetAddress;
 
 
@@ -27,14 +22,20 @@ import java.net.InetAddress;
 @Component
 @ChannelHandler.Sharable
 public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketFrame> {
-    @Resource
-    private IJWTService jwtService;
-    @Autowired
-    private IRedisService redisService;
-    @Autowired
-    private ChannelContextUtils channelContextUtils;
-    @Autowired
-    private Environment environment;
+    private final IJWTService jwtService;
+    private final IRedisService redisService;
+    private final ChannelContextUtils channelContextUtils;
+    private final Environment environment;
+
+    public HandlerWebSocket(IJWTService jwtService,
+                            IRedisService redisService,
+                            ChannelContextUtils channelContextUtils,
+                            Environment environment) {
+        this.jwtService = jwtService;
+        this.redisService = redisService;
+        this.channelContextUtils = channelContextUtils;
+        this.environment = environment;
+    }
 //
 //    private String serverIp;
 //    private String serverPort;

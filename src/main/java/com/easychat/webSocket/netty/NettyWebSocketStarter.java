@@ -11,7 +11,6 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -29,10 +28,13 @@ public class NettyWebSocketStarter {
     //发送消息 work线程
     private static NioEventLoopGroup workGroup = new NioEventLoopGroup();
 
-    @Autowired
-    private HandlerWebSocket handlerWebSocket;
-    @Autowired
-    private HandlerHeartBeat handlerHeartBeat;
+    private final HandlerWebSocket handlerWebSocket;
+    private final HandlerHeartBeat handlerHeartBeat;
+
+    public NettyWebSocketStarter(HandlerWebSocket handlerWebSocket, HandlerHeartBeat handlerHeartBeat) {
+        this.handlerWebSocket = handlerWebSocket;
+        this.handlerHeartBeat = handlerHeartBeat;
+    }
 
     /***
      * 异步启动 Netty

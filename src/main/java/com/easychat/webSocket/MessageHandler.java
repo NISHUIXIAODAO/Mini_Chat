@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
 
 /***
  * 集群化
@@ -21,10 +20,13 @@ public class MessageHandler {
     private static final Logger logger = LoggerFactory.getLogger(MessageHandler.class);
 
     private static final String MESSAGE_TOPIC = "message.topic";
-    @Resource
-    private RedissonClient redissonClient;
-    @Resource
-    private ChannelContextUtils channelContextUtils;
+    private final RedissonClient redissonClient;
+    private final ChannelContextUtils channelContextUtils;
+
+    public MessageHandler(RedissonClient redissonClient, ChannelContextUtils channelContextUtils) {
+        this.redissonClient = redissonClient;
+        this.channelContextUtils = channelContextUtils;
+    }
 
     /***
      * 消息订阅：

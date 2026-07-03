@@ -3,7 +3,6 @@ package com.easychat.controller;
 import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.webSocket.ChannelContextUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,8 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/internal")
 public class InternalPushController {
 
-    @Autowired
-    private ChannelContextUtils channelContextUtils;
+    private final ChannelContextUtils channelContextUtils;
+
+    public InternalPushController(ChannelContextUtils channelContextUtils) {
+        this.channelContextUtils = channelContextUtils;
+    }
 
     @PostMapping("/push")
     public ResultVo<String> pushMessage(@RequestBody MessageSendDTO message) {

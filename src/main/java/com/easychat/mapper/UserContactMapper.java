@@ -25,6 +25,9 @@ public interface UserContactMapper extends BaseMapper<UserContact> {
     @Select("select * from user_contact where user_id = #{contactId} and contact_id = #{userId}")
     UserContact getReceiveInfo(@Param("contactId") Integer contactId,@Param("userId") Integer userId);
 
+    @Select("select * from user_contact where user_id = #{userId} and contact_id = #{contactId}")
+    UserContact getByUserIdAndContactId(@Param("userId") Integer userId, @Param("contactId") Integer contactId);
+
     @Insert("insert into user_contact (user_id , contact_id , contact_type , create_time , status , last_update_time)" +
             "value (#{userId} , #{contactId} , #{contactType} , #{createTime} , #{status} , #{lastUpdateTime})")
     void insertContact(@Param("userId") Integer userId,
@@ -34,11 +37,18 @@ public interface UserContactMapper extends BaseMapper<UserContact> {
                     @Param("status") Integer status,
                     @Param("lastUpdateTime") LocalDateTime lastUpdateTime);
 
+    @Update("update user_contact set contact_type = #{contactType}, status = #{status}, last_update_time = #{lastUpdateTime} where user_id = #{userId} and contact_id = #{contactId}")
+    void updateContact(@Param("userId") Integer userId,
+                       @Param("contactId") Integer contactId,
+                       @Param("contactType") int contactType,
+                       @Param("status") Integer status,
+                       @Param("lastUpdateTime") LocalDateTime lastUpdateTime);
+
     @Select("select count(*) from user_contact where contact_id = #{groupId} and status = #{status}")
     Integer getGroupCountByContactIdAndStatus(@Param("groupId") Integer groupId,@Param("status") Integer status);
 
     @Select("select status from user_contact where user_id = #{userId} and contact_id = #{contactId}")
-    Integer getStatusByUserIdAndContactId(@Param("contactId") Integer userId,@Param("userId") Integer contactId);
+    Integer getStatusByUserIdAndContactId(@Param("userId") Integer userId,@Param("contactId") Integer contactId);
     @Select("select contact_type from user_contact where user_id = #{userId} and contact_id = #{contactId}")
     Integer getContactTypeByContactId(@Param("userId") Integer userId, @Param("contactId") Integer contactId);
 }

@@ -5,7 +5,6 @@ import com.easychat.entity.DTO.request.GetMessageHistoryDTO;
 import com.easychat.entity.DTO.response.MessageHistoryResponseDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.service.IChatMessageService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,8 +16,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/chat")
 public class ChatController {
-    @Autowired
-    private IChatMessageService chatMessageService;
+    private final IChatMessageService chatMessageService;
+
+    public ChatController(IChatMessageService chatMessageService) {
+        this.chatMessageService = chatMessageService;
+    }
 
     @RequestMapping("/sendMessage")
     public ResultVo<Object> sendMessage(@RequestBody ChatSendMessageDTO chatSendMessageDTO, HttpServletRequest request, HttpServletResponse response) {

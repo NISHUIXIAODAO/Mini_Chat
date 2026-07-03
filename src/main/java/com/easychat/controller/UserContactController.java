@@ -5,7 +5,6 @@ import com.easychat.entity.DTO.request.DisposeApplyDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IUserContactService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -22,10 +21,13 @@ import javax.servlet.http.HttpServletResponse;
 @RestController
 @RequestMapping("/userContact")
 public class UserContactController {
-    @Autowired
-    private IUserContactService iUserContactService;
-    @Autowired
-    private IJWTService jwtService;
+    private final IUserContactService iUserContactService;
+    private final IJWTService jwtService;
+
+    public UserContactController(IUserContactService iUserContactService, IJWTService jwtService) {
+        this.iUserContactService = iUserContactService;
+        this.jwtService = jwtService;
+    }
 
     @GetMapping("/getContactList")
     public ResultVo<Object> getContactList(HttpServletRequest request, HttpServletResponse response) {
