@@ -77,8 +77,18 @@ public class MessageHistoryResponseDTO {
     private Integer fileType;
 
     /**
-     * 状态：0-正在发送，1-已发送
+     * 状态：0-正在发送，1-已发送，2-已送达，3-已读
      */
     private Integer status;
+
+    /**
+     * 送达时间
+     */
+    private Long deliveredTime;
+
+    /**
+     * 已读时间
+     */
+    private Long readTime;
 
 }

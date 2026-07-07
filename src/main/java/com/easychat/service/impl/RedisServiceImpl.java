@@ -137,4 +137,13 @@ public class RedisServiceImpl implements IRedisService {
         redisTemplate.delete("user:location:" + userId);
     }
 
+    @Override
+    public void removeUserLocation(Integer userId, String expectedLocation) {
+        String key = "user:location:" + userId;
+        Object currentLocation = redisTemplate.opsForValue().get(key);
+        if (expectedLocation != null && expectedLocation.equals(currentLocation)) {
+            redisTemplate.delete(key);
+        }
+    }
+
 }

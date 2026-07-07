@@ -5,6 +5,7 @@ import com.easychat.entity.ResultVo;
 import com.easychat.webSocket.ChannelContextUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,9 +24,12 @@ public class InternalPushController {
     }
 
     @PostMapping("/push")
-    public ResultVo<String> pushMessage(@RequestBody MessageSendDTO message) {
-        // 直接通过本地 WebSocket 推送
-        channelContextUtils.sendMessage(message);
+    public ResultVo<String> pushMessage(@RequestParam(required = false) Integer userId,
+                                        @RequestBody MessageSendDTO message) {
+        if (userId == null) {
+            return ResultVo.failed("userId is required for internal precise push");
+        }
+        channelContextUtils.sendMsg(message, userId);
         return ResultVo.success("Pushed to local user");
     }
 }

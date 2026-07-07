@@ -50,8 +50,12 @@ public class MessageSendDTO<T> implements Serializable {
     // 扩展信息
     private T extendData;
 
-    // 消息状态 0：发送中 1：已发送（对于文件是异步上传用状态处理）
+    // 消息状态 0：发送中 1：已发送 2：已送达 3：已读
     private Integer status;
+
+    // 送达/已读时间
+    private Long deliveredTime;
+    private Long readTime;
 
     // 文件信息
     private Long fileSize;

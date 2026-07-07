@@ -37,6 +37,16 @@ public interface UserContactMapper extends BaseMapper<UserContact> {
                     @Param("status") Integer status,
                     @Param("lastUpdateTime") LocalDateTime lastUpdateTime);
 
+    @Insert("insert into user_contact (user_id, contact_id, contact_type, create_time, status, last_update_time) " +
+            "values (#{userId}, #{contactId}, #{contactType}, #{createTime}, #{status}, #{lastUpdateTime}) " +
+            "on duplicate key update contact_type = values(contact_type), status = values(status), last_update_time = values(last_update_time)")
+    void upsertContact(@Param("userId") Integer userId,
+                       @Param("contactId") Integer contactId,
+                       @Param("contactType") int contactType,
+                       @Param("createTime") LocalDateTime createTime,
+                       @Param("status") Integer status,
+                       @Param("lastUpdateTime") LocalDateTime lastUpdateTime);
+
     @Update("update user_contact set contact_type = #{contactType}, status = #{status}, last_update_time = #{lastUpdateTime} where user_id = #{userId} and contact_id = #{contactId}")
     void updateContact(@Param("userId") Integer userId,
                        @Param("contactId") Integer contactId,

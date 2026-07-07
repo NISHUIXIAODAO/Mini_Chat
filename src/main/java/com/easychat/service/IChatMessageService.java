@@ -4,6 +4,7 @@ import com.easychat.entity.DO.ChatMessage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.easychat.entity.DTO.request.ChatSendMessageDTO;
 import com.easychat.entity.DTO.request.GetMessageHistoryDTO;
+import com.easychat.entity.DTO.request.MessageAckDTO;
 import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.DTO.response.MessageHistoryResponseDTO;
 
@@ -30,4 +31,8 @@ public interface IChatMessageService extends IService<ChatMessage> {
      * @return 聊天历史记录列表
      */
     List<MessageHistoryResponseDTO> getMessageHistory(GetMessageHistoryDTO getMessageHistoryDTO, HttpServletRequest request);
+
+    void ackDelivered(MessageAckDTO ackDTO, HttpServletRequest request);
+
+    void markRead(MessageAckDTO ackDTO, HttpServletRequest request);
 }

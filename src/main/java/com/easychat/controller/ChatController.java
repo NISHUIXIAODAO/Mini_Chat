@@ -2,6 +2,7 @@ package com.easychat.controller;
 
 import com.easychat.entity.DTO.request.ChatSendMessageDTO;
 import com.easychat.entity.DTO.request.GetMessageHistoryDTO;
+import com.easychat.entity.DTO.request.MessageAckDTO;
 import com.easychat.entity.DTO.response.MessageHistoryResponseDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.service.IChatMessageService;
@@ -34,11 +35,34 @@ public class ChatController {
      * @return 聊天历史记录列表
      */
     @RequestMapping("/getMessageHistory")
-    public ResultVo<List<MessageHistoryResponseDTO>> getMessageHistory(Integer contactId, HttpServletRequest request) {
+    public ResultVo<List<MessageHistoryResponseDTO>> getMessageHistory(Integer contactId,
+                                                                       Long lastMessageId,
+                                                                       Long lastTimestamp,
+                                                                       Integer pageSize,
+                                                                       Boolean forward,
+                                                                       HttpServletRequest request) {
         GetMessageHistoryDTO getMessageHistoryDTO = new GetMessageHistoryDTO();
         getMessageHistoryDTO.setContactId(contactId);
+        getMessageHistoryDTO.setLastMessageId(lastMessageId);
+        getMessageHistoryDTO.setLastTimestamp(lastTimestamp);
+        if (pageSize != null) {
+            getMessageHistoryDTO.setPageSize(pageSize);
+        }
+        getMessageHistoryDTO.setForward(Boolean.TRUE.equals(forward));
         List<MessageHistoryResponseDTO> messageList = chatMessageService.getMessageHistory(getMessageHistoryDTO, request);
         return ResultVo.success(messageList);
+    }
+
+    @RequestMapping("/message/ack")
+    public ResultVo<String> ackDelivered(@RequestBody MessageAckDTO ackDTO, HttpServletRequest request) {
+        chatMessageService.ackDelivered(ackDTO, request);
+        return ResultVo.success("ok");
+    }
+
+    @RequestMapping("/message/read")
+    public ResultVo<String> markRead(@RequestBody MessageAckDTO ackDTO, HttpServletRequest request) {
+        chatMessageService.markRead(ackDTO, request);
+        return ResultVo.success("ok");
     }
 
 }

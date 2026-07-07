@@ -17,4 +17,5 @@ public interface IRedisService {
     public void saveUserLocation(Integer userId, String ip);
     public String getUserLocation(Integer userId);
     public void removeUserLocation(Integer userId);
+    public void removeUserLocation(Integer userId, String expectedLocation);
 }

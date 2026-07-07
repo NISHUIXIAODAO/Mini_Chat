@@ -57,5 +57,19 @@ public class ChatSessionUser implements Serializable {
      */
     private Long LastReceiveTime;
 
+    /**
+     * 当前用户在该会话的未读数
+     */
+    private Integer unreadCount;
+
+    /**
+     * 当前用户最后读到的消息 ID
+     */
+    private Long lastReadMessageId;
+
+    /**
+     * 当前用户最后读消息时间
+     */
+    private Long lastReadTime;
 
 }

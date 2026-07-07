@@ -14,12 +14,9 @@ import com.easychat.mapper.*;
 import com.easychat.service.IRedisService;
 import com.easychat.utils.JsonUtils;
 import io.netty.channel.Channel;
-import io.netty.channel.group.ChannelGroup;
-import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
-import io.netty.util.concurrent.GlobalEventExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -54,9 +51,7 @@ public class ChannelContextUtils {
         this.userContactMapper = userContactMapper;
     }
 
-    // todo 单机无法满足，可以用 redis
     private static final ConcurrentHashMap<Integer,Channel> User_Context_Map = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Integer,ChannelGroup> Group_Context_Map = new ConcurrentHashMap<>();
 
     /***
      * channel 与 userId 建立关联    用户与自己的管道绑定
@@ -79,9 +74,6 @@ public class ChannelContextUtils {
         List<Integer> friendIdList = redisService.getUserContactList(redisService.generateRedisKey(userId,CONTACT_TYPE_FRIEND));
         List<Integer> groupIdList = redisService.getUserContactList(redisService.generateRedisKey(userId,CONTACT_TYPE_GROUPS));
 
-        for(Integer groupId : groupIdList){
-            add2Group(groupId,channel);
-        }
         //更新用户最后连接时间
         userInfoMapper.updateLastLoginTimeById(userId, LocalDateTime.now());
 
@@ -135,23 +127,6 @@ public class ChannelContextUtils {
 
     }
 
-    private void add2Group(Integer groupId , Channel channel){
-        ChannelGroup channelGroup = Group_Context_Map.get(groupId);
-        if(channelGroup == null){
-            channelGroup = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
-            Group_Context_Map.put(groupId,channelGroup);
-        }
-        if(channel == null){
-            return;
-        }
-        channelGroup.add(channel);
-    }
-
-    public void addUser2Group(Integer userId , Integer groupId){
-        Channel channel = User_Context_Map.get(userId);
-        add2Group(groupId, channel);
-    }
-
     /***
      * 关闭连接
      * @param channel
@@ -166,41 +141,6 @@ public class ChannelContextUtils {
         redisService.removeUserHeartBeat(userId);
         //更新用户最后离线时间
         userInfoMapper.updateLastOffTimeById(userId,LocalDateTime.now());
-    }
-
-    /***
-     * 发送消息(单聊，群聊)
-     * 将消息发送到目标管道中
-     * @param sendDto
-     */
-    public void sendMessage(MessageSendDTO sendDto){
-        Integer contactType = userContactMapper.getContactTypeByContactId(sendDto.getSendUserId(), sendDto.getContactId());
-        if(contactType == null){
-            log.info("ChannelContextUtils 未查到好友申请");
-            return;
-        }
-        switch(contactType){
-            case CONTACT_TYPE_FRIEND:
-                send2User(sendDto);
-                break;
-            case CONTACT_TYPE_GROUPS:
-                send2Group(sendDto);
-                break;
-
-        }
-    }
-
-    /***
-     * 发送给用户
-     * @param messageSendDTO
-     */
-    private void send2User(MessageSendDTO messageSendDTO){
-        Integer contactId = messageSendDTO.getContactId();
-         if(contactId == null){
-            return;
-        }
-        sendMsg(messageSendDTO,contactId);
-
     }
 
     /***
@@ -224,7 +164,8 @@ public class ChannelContextUtils {
             messageSendDTO.setContactId(userInfo.getUserId());
             messageSendDTO.setContactName(userInfo.getNickName());
             messageSendDTO.setExtendData(null);
-        } else {
+        } else if (messageSendDTO.getSendUserId() != null
+                && !Integer.valueOf(CONTACT_TYPE_GROUPS).equals(messageSendDTO.getContactType())) {
             messageSendDTO.setContactId(messageSendDTO.getSendUserId());
             messageSendDTO.setContactName(messageSendDTO.getContactName());
         }
@@ -234,20 +175,4 @@ public class ChannelContextUtils {
         sendChannel.writeAndFlush(new TextWebSocketFrame(JsonUtils.convertObjToJson(messageSendDTO)));
     }
 
-    /***
-     * 发送给群聊
-     * 通过 Group_Context_Map 获取目标群聊的管道 ，并将消息发送到群聊管道
-     * @param messageSendDTO
-     */
-    private void send2Group(MessageSendDTO messageSendDTO){
-        Integer contactId = messageSendDTO.getContactId();
-        if(contactId == null){
-            return;
-        }
-        ChannelGroup channelGroup = Group_Context_Map.get(contactId);
-        if(channelGroup == null){
-            return;
-        }
-        channelGroup.writeAndFlush(new TextWebSocketFrame(JsonUtils.convertObjToJson(messageSendDTO)));
-    }
 }

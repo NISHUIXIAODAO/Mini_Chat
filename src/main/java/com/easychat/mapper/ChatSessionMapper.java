@@ -2,6 +2,7 @@ package com.easychat.mapper;
 
 import com.easychat.entity.DO.ChatSession;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -26,4 +27,11 @@ public interface ChatSessionMapper extends BaseMapper<ChatSession> {
 
     @Update("update chat_session set last_message = #{lastMessage} , last_receive_time = #{lastReceiveTime} where session_id = #{sessionId}")
     void updateBySessionId(@Param("sessionId") String sessionId,@Param("lastMessage") String lastMessage,@Param("lastReceiveTime") long lastReceiveTime);
+
+    @Insert("insert into chat_session (session_id, last_message, last_receive_time) " +
+            "values (#{sessionId}, #{lastMessage}, #{lastReceiveTime}) " +
+            "on duplicate key update last_message = values(last_message), last_receive_time = values(last_receive_time)")
+    void upsertBySessionId(@Param("sessionId") String sessionId,
+                           @Param("lastMessage") String lastMessage,
+                           @Param("lastReceiveTime") long lastReceiveTime);
 }

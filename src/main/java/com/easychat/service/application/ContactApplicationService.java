@@ -113,6 +113,10 @@ public class ContactApplicationService {
                     .getByApplyUserIdAddReceiveUserIdAddContactId(applyUserId, receiveUserId, contactId);
 
             if (receiveJoinType == 0) {
+                UserContact applyContact = userContactMapper.getByUserIdAndContactId(applyUserId, receiveUserId);
+                if (isFriend(applyContact) && isFriend(receiveContact)) {
+                    return ResultVo.success("已是好友");
+                }
                 ChatMessage chatMessage = agreeFriendContact(applyUserId, receiveUserId, applyInfo);
                 log.info("无需同意，添加成功");
                 messagePushService.afterCommit(new Runnable() {
@@ -122,20 +126,10 @@ public class ContactApplicationService {
                         sendFriendAgreeMessage(chatMessage, applyUserId, receiveUserId);
                     }
                 });
-            } else if (applyRecode == null) {
-                UserContactApply contactApply = new UserContactApply();
-                contactApply.setApplyUserId(applyUserId);
-                contactApply.setReceiveUserId(receiveUserId);
-                contactApply.setContactType(CONTACT_TYPE_FRIEND);
-                contactApply.setLastApplyTime(curTime);
-                contactApply.setContactId(contactId);
-                contactApply.setStatus(WAITING.getStatus());
-                contactApply.setApplyInfo(applyInfo);
-                userContactApplyMapper.insert(contactApply);
-                log.info("已发起好友申请");
             } else {
-                userContactApplyMapper.updateByApplyId(applyRecode.getApplyId(), WAITING.getStatus(), curTime, applyInfo);
-                log.info("已重新发起好友申请");
+                userContactApplyMapper.upsertApply(applyUserId, receiveUserId, CONTACT_TYPE_FRIEND, contactId,
+                        curTime, WAITING.getStatus(), applyInfo);
+                log.info(applyRecode == null ? "已发起好友申请" : "已重新发起好友申请");
             }
 
             if (applyRecode == null || !MessageTypeEnum.INIT.getType().equals(applyRecode.getContactType())) {
@@ -143,7 +137,7 @@ public class ContactApplicationService {
                 messageSendDTO.setMessageType(MessageTypeEnum.CONTACT_APPLY.getType());
                 messageSendDTO.setMessageContent(applyInfo);
                 messageSendDTO.setContactId(receiveUserId);
-                messagePushService.sendKafkaAfterCommit(messageSendDTO);
+                messagePushService.pushToUserAfterCommit(receiveUserId, messageSendDTO);
             }
 
             return ResultVo.success("申请好友成功");
@@ -173,25 +167,16 @@ public class ContactApplicationService {
                 .getByApplyUserIdAddReceiveUserIdAddContactId(applyUserId, groupOwnerId, groupId);
 
         if (groupJoinType == 0) {
+            UserContact existContact = userContactMapper.getByUserIdAndContactId(applyUserId, groupId);
+            if (isFriend(existContact)) {
+                return ResultVo.success("已加入群聊");
+            }
             saveOrUpdateContact(applyUserId, groupId, CONTACT_TYPE_GROUPS, FRIEND_YES.getCode());
             log.info("无需同意，添加成功");
-        } else if (applyRecode == null) {
-            UserContactApply contactApply = new UserContactApply();
-            contactApply.setApplyUserId(applyUserId);
-            contactApply.setReceiveUserId(groupOwnerId);
-            contactApply.setContactType(CONTACT_TYPE_GROUPS);
-            contactApply.setLastApplyTime(curTime);
-            contactApply.setContactId(groupId);
-            contactApply.setStatus(WAITING.getStatus());
-            contactApply.setApplyInfo(applyGroupAddDTO.getApplyInfo());
-            userContactApplyMapper.insert(contactApply);
-            log.info("已发起加入群聊申请");
         } else {
-            userContactApplyMapper.updateByApplyId(applyRecode.getApplyId(),
-                    WAITING.getStatus(),
-                    curTime,
-                    applyGroupAddDTO.getApplyInfo());
-            log.info("已重新发起加入群聊申请");
+            userContactApplyMapper.upsertApply(applyUserId, groupOwnerId, CONTACT_TYPE_GROUPS, groupId,
+                    curTime, WAITING.getStatus(), applyGroupAddDTO.getApplyInfo());
+            log.info(applyRecode == null ? "已发起加入群聊申请" : "已重新发起加入群聊申请");
         }
 
         if (applyRecode == null) {
@@ -199,7 +184,7 @@ public class ContactApplicationService {
             messageSendDTO.setMessageType(MessageTypeEnum.CONTACT_APPLY.getType());
             messageSendDTO.setMessageContent(applyGroupAddDTO.getApplyInfo());
             messageSendDTO.setContactId(groupOwnerId);
-            messagePushService.sendKafkaAfterCommit(messageSendDTO);
+            messagePushService.pushToUserAfterCommit(groupOwnerId, messageSendDTO);
         }
 
         return ResultVo.success("申请加入群聊成功");
@@ -265,17 +250,32 @@ public class ContactApplicationService {
         String token = jwtService.extractToken(request);
 
         Integer receiveUserId = jwtService.getUserId(token);
-        Integer groupId = groupInfoMapper.getGroupIdByOwnerId(receiveUserId);
-        String applyInfo = userContactApplyMapper.getApplyInfoByApplyUserIdAndReceiveUserId(applyUserId, receiveUserId);
-        Integer contactType = userContactApplyMapper.getContactTypeByApplyUserIdAndReceiveUserId(applyUserId, receiveUserId);
-        if (contactType == null) {
+        UserContactApply applyRecord = getApplyRecord(disposeApplyDTO, applyUserId, receiveUserId);
+        if (applyRecord == null) {
             return ResultVo.failed("未收到好友申请");
         }
 
-        userContactApplyMapper.setStatus(applyUserId, receiveUserId, status);
-        if (contactType == CONTACT_TYPE_FRIEND) {
+        if (AGREE.getStatus().equals(applyRecord.getStatus())) {
+            return ResultVo.success("申请已同意");
+        }
+        if (!WAITING.getStatus().equals(applyRecord.getStatus())) {
+            return ResultVo.success("申请已处理");
+        }
+
+        int updateCount = userContactApplyMapper.updateStatusByApplyIdAndStatus(
+                applyRecord.getApplyId(), WAITING.getStatus(), status);
+        if (updateCount == 0) {
+            UserContactApply latestApplyRecord = userContactApplyMapper.getByApplyId(applyRecord.getApplyId());
+            if (latestApplyRecord != null && AGREE.getStatus().equals(latestApplyRecord.getStatus())) {
+                return ResultVo.success("申请已同意");
+            }
+            return ResultVo.success("申请已处理");
+        }
+
+        Integer contactType = applyRecord.getContactType();
+        if (Integer.valueOf(CONTACT_TYPE_FRIEND).equals(contactType)) {
             if (status.equals(AGREE.getStatus())) {
-                ChatMessage chatMessage = agreeFriendContact(applyUserId, receiveUserId, applyInfo);
+                ChatMessage chatMessage = agreeFriendContact(applyUserId, receiveUserId, applyRecord.getApplyInfo());
                 messagePushService.afterCommit(new Runnable() {
                     @Override
                     public void run() {
@@ -286,16 +286,14 @@ public class ContactApplicationService {
             } else if (status.equals(BLACK.getStatus())) {
                 saveOrUpdateContact(applyUserId, receiveUserId, contactType, FRIEND_BLACK.getCode());
             }
-        } else if (contactType == CONTACT_TYPE_GROUPS) {
+        } else if (Integer.valueOf(CONTACT_TYPE_GROUPS).equals(contactType)) {
+            Integer groupId = applyRecord.getContactId();
             if (status.equals(AGREE.getStatus())) {
                 saveOrUpdateContact(applyUserId, groupId, contactType, FRIEND_YES.getCode());
+                agreeGroupContact(applyUserId, groupId);
             } else if (status.equals(BLACK.getStatus())) {
                 saveOrUpdateContact(applyUserId, groupId, contactType, FRIEND_BLACK.getCode());
             }
-        }
-
-        if (contactType == CONTACT_TYPE_GROUPS) {
-            agreeGroupContact(applyUserId, groupId);
         }
 
         return ResultVo.success("处理好友申请成功");
@@ -329,8 +327,7 @@ public class ContactApplicationService {
             @Override
             public void run() {
                 redisService.addUserContact(redisService.generateRedisKey(applyUserId, CONTACT_TYPE_GROUPS), groupInfo.getGroupId());
-                channelContextUtils.addUser2Group(applyUserId, groupInfo.getGroupId());
-                messagePushService.sendKafka(messageSendDTO);
+                messagePushService.pushToUser(applyUserId, messageSendDTO);
             }
         });
     }
@@ -363,12 +360,42 @@ public class ContactApplicationService {
 
     private void saveOrUpdateContact(Integer userId, Integer contactId, int contactType, Integer status) {
         LocalDateTime now = LocalDateTime.now();
-        UserContact existContact = userContactMapper.getByUserIdAndContactId(userId, contactId);
-        if (existContact == null) {
-            userContactMapper.insertContact(userId, contactId, contactType, now, status, now);
-            return;
+        userContactMapper.upsertContact(userId, contactId, contactType, now, status, now);
+    }
+
+    private boolean isFriend(UserContact userContact) {
+        return userContact != null && FRIEND_YES.getCode().equals(userContact.getStatus());
+    }
+
+    private UserContactApply getApplyRecord(DisposeApplyDTO disposeApplyDTO, Integer applyUserId, Integer receiveUserId) {
+        if (disposeApplyDTO.getApplyId() != null) {
+            UserContactApply applyRecord = userContactApplyMapper.getByApplyId(disposeApplyDTO.getApplyId());
+            if (applyRecord != null
+                    && receiveUserId.equals(applyRecord.getReceiveUserId())
+                    && (applyUserId == null || applyUserId.equals(applyRecord.getApplyUserId()))) {
+                return applyRecord;
+            }
+            return null;
         }
-        userContactMapper.updateContact(userId, contactId, contactType, status, now);
+
+        if (applyUserId == null) {
+            return null;
+        }
+
+        if (disposeApplyDTO.getContactId() != null && disposeApplyDTO.getContactType() != null) {
+            return userContactApplyMapper.getByApplyUserIdAndReceiveUserIdAndContactIdAndContactType(
+                    applyUserId,
+                    receiveUserId,
+                    disposeApplyDTO.getContactId(),
+                    disposeApplyDTO.getContactType());
+        }
+
+        UserContactApply waitingApplyRecord = userContactApplyMapper.getLatestByApplyUserIdAndReceiveUserIdAndStatus(
+                applyUserId, receiveUserId, WAITING.getStatus());
+        if (waitingApplyRecord != null) {
+            return waitingApplyRecord;
+        }
+        return userContactApplyMapper.getLatestByApplyUserIdAndReceiveUserId(applyUserId, receiveUserId);
     }
 
     private void syncFriendContactCache(Integer applyUserId, Integer receiveUserId) {
@@ -381,12 +408,12 @@ public class ContactApplicationService {
     private void sendFriendAgreeMessage(ChatMessage chatMessage, Integer applyUserId, Integer receiveUserId) {
         UserInfo receiveUser = userInfoMapper.getUserById(receiveUserId);
         MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
-        messagePushService.sendKafka(messageSendDTO);
+        messagePushService.pushToUser(receiveUserId, messageSendDTO);
 
         MessageSendDTO selfMessageSendDTO = CopyTools.copy(chatMessage);
         selfMessageSendDTO.setMessageType(MessageTypeEnum.ADD_FRIEND_SELF.getType());
         selfMessageSendDTO.setContactId(applyUserId);
         selfMessageSendDTO.setExtendData(receiveUser);
-        messagePushService.sendKafka(selfMessageSendDTO);
+        messagePushService.pushToUser(applyUserId, selfMessageSendDTO);
     }
 }

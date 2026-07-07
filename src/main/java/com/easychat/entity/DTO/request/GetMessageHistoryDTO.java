@@ -24,4 +24,14 @@ public class GetMessageHistoryDTO {
      * 首次查询可不传，默认查询最新的消息
      */
     private Long lastTimestamp;
+
+    /**
+     * 已收到的最大消息 ID，用于重连后拉取增量消息
+     */
+    private Long lastMessageId;
+
+    /**
+     * true 时查询 message_id 大于 lastMessageId 的新消息
+     */
+    private Boolean forward = false;
 }

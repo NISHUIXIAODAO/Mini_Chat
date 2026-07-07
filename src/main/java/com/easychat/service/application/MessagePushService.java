@@ -3,7 +3,6 @@ package com.easychat.service.application;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.json.JSONUtil;
 import com.easychat.entity.DTO.request.MessageSendDTO;
-import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.service.IRedisService;
 import com.easychat.webSocket.ChannelContextUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +20,6 @@ public class MessagePushService {
 
     private final IRedisService redisService;
     private final ChannelContextUtils channelContextUtils;
-    private final KafkaMessageProducer kafkaMessageProducer;
 
     @Value("${server.port:5050}")
     private String serverPort;
@@ -29,25 +27,10 @@ public class MessagePushService {
     private final String localIp;
 
     public MessagePushService(IRedisService redisService,
-                              ChannelContextUtils channelContextUtils,
-                              KafkaMessageProducer kafkaMessageProducer) {
+                              ChannelContextUtils channelContextUtils) {
         this.redisService = redisService;
         this.channelContextUtils = channelContextUtils;
-        this.kafkaMessageProducer = kafkaMessageProducer;
         this.localIp = resolveLocalIp();
-    }
-
-    public void sendKafkaAfterCommit(final MessageSendDTO<?> message) {
-        afterCommit(new Runnable() {
-            @Override
-            public void run() {
-                kafkaMessageProducer.sendMessage(message);
-            }
-        });
-    }
-
-    public void sendKafka(MessageSendDTO<?> message) {
-        kafkaMessageProducer.sendMessage(message);
     }
 
     public void pushToUserAfterCommit(final Integer userId, final MessageSendDTO<?> message) {
@@ -78,11 +61,11 @@ public class MessagePushService {
 
             if (isLocalIp && isLocalPort) {
                 log.info("目标用户在【本机】，直接通过WebSocket推送");
-                channelContextUtils.sendMessage(message);
+                pushLocal(userId, message);
                 return;
             }
 
-            final String url = "http://" + targetIp + ":" + targetPort + "/internal/push";
+            final String url = "http://" + targetIp + ":" + targetPort + "/internal/push?userId=" + userId;
             log.info("目标用户在【远程节点】({}:{}), 发起HTTP转发: {}", targetIp, targetPort, url);
             CompletableFuture.runAsync(new Runnable() {
                 @Override
@@ -100,6 +83,10 @@ public class MessagePushService {
         } catch (Exception e) {
             log.error("消息推送失败", e);
         }
+    }
+
+    private void pushLocal(Integer userId, MessageSendDTO<?> message) {
+        channelContextUtils.sendMsg(message, userId);
     }
 
     public void afterCommit(final Runnable action) {
