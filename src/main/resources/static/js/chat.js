@@ -31,6 +31,74 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 当前选中的联系人
     let currentContactId = null;
+
+    function postChatEvent(url, payload) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            },
+            body: JSON.stringify(payload)
+        }).catch(error => {
+            console.error('聊天状态回执失败:', error);
+        });
+    }
+
+    function ackMessage(message) {
+        if (!message || !message.messageId || String(message.sendUserId) === String(userId)) {
+            return;
+        }
+        postChatEvent('/chat/message/ack', {
+            messageId: message.messageId,
+            sessionId: message.sessionId,
+            contactId: message.sendUserId
+        });
+    }
+
+    function markCurrentSessionRead(messageId) {
+        if (!currentContactId) {
+            return;
+        }
+        postChatEvent('/chat/message/read', {
+            messageId: messageId || null,
+            contactId: currentContactId
+        });
+    }
+
+    function getMaxRenderedMessageId() {
+        let maxId = null;
+        chatMessages.querySelectorAll('.message[data-message-id]').forEach(item => {
+            const id = Number(item.dataset.messageId);
+            if (!Number.isNaN(id) && (maxId === null || id > maxId)) {
+                maxId = id;
+            }
+        });
+        return maxId;
+    }
+
+    function renderMessages(messages, clearBeforeRender) {
+        if (clearBeforeRender) {
+            chatMessages.innerHTML = '';
+        }
+        const sortedMessages = [...messages].sort((a, b) => {
+            if (a.messageId && b.messageId) {
+                return a.messageId - b.messageId;
+            }
+            if (a.sendTime && b.sendTime) {
+                return new Date(a.sendTime) - new Date(b.sendTime);
+            }
+            return 0;
+        });
+        sortedMessages.forEach(message => {
+            if (message.messageId && chatMessages.querySelector(`.message[data-message-id="${message.messageId}"]`)) {
+                return;
+            }
+            addMessageToChat(message);
+            ackMessage(message);
+        });
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
     
     // 加载联系人列表
     function loadContacts() {
@@ -92,6 +160,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         // 加载聊天记录
                         loadChatHistory(currentContactId);
+                        markCurrentSessionRead(null);
                     });
                     
                     contactList.appendChild(contactItem);
@@ -116,30 +185,44 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.code === 200 && data.data) {
-                chatMessages.innerHTML = '';
-                
-                // 确保消息按时间顺序排序（如果后端未排序）
-                const sortedMessages = [...data.data].sort((a, b) => {
-                    // sendTime字段，按时间排序
-                    if (a.sendTime && b.sendTime) {
-                        return new Date(a.sendTime) - new Date(b.sendTime);
-                    }
-                    return 0; // 保持原顺序
-                });
-                
-                // 渲染聊天记录
-                sortedMessages.forEach(message => {
-                    addMessageToChat(message);
-                });
-                
-                // 滚动到最新消息
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                renderMessages(data.data, true);
             } else {
                 console.error('加载聊天记录失败:', data.msg);
             }
         })
         .catch(error => {
             console.error('请求聊天记录出错:', error);
+        });
+    }
+
+    function loadMissingMessages(fromMessageId) {
+        if (!currentContactId) {
+            return;
+        }
+        const lastMessageId = fromMessageId || getMaxRenderedMessageId();
+        if (!lastMessageId) {
+            loadChatHistory(currentContactId);
+            return;
+        }
+        fetch(`/chat/getMessageHistory?contactId=${currentContactId}&lastMessageId=${lastMessageId}&forward=true&pageSize=100`, {
+            method: 'GET',
+            headers: {
+                'Authorization': token
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.code === 200 && data.data && data.data.length > 0) {
+                renderMessages(data.data, false);
+                const latestId = getMaxRenderedMessageId();
+                markCurrentSessionRead(latestId);
+                if (data.data.length >= 100 && latestId && latestId !== lastMessageId) {
+                    loadMissingMessages(latestId);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('补偿拉取聊天记录出错:', error);
         });
     }
     
@@ -172,6 +255,9 @@ document.addEventListener('DOMContentLoaded', function() {
         messageContent.textContent = message.messageContent;
         
         // 添加时间戳属性用于消息去重
+        if (message.messageId) {
+            messageElement.dataset.messageId = message.messageId;
+        }
         if (message.createTime) {
             messageElement.dataset.timestamp = message.createTime;
         } else {
@@ -200,21 +286,9 @@ document.addEventListener('DOMContentLoaded', function() {
             sendUserId: userId
         };
         
-        // 立即在前端显示发送的消息
-        const newMessage = {
-            sendUserId: userId,
-            messageContent: content
-        };
-        addMessageToChat(newMessage);
-        
         // 清空输入框
         messageInput.value = '';
-        
-        // 通过WebSocket发送消息
-        const ws = getWebSocketInstance();
-        const wsSuccess = ws.isConnected() && ws.sendMessage(messageData);
-        
-        // 同时通过HTTP接口发送（作为备份方式）
+
         fetch('/chat/sendMessage', {
             method: 'POST',
             headers: {
@@ -229,11 +303,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('发送消息失败:', data);
                 // 优先尝试获取 message 字段，这是 ResultVo 的标准字段
                 alert('发送消息失败: ' + (data.message || data.msg || '未知错误，状态码:' + data.code));
+                messageInput.value = content;
+                return;
+            }
+            if (data.data) {
+                addMessageToChat(data.data);
+                updateContactPreview(currentContactId, data.data.messageContent);
             }
         })
         .catch(error => {
             console.error('发送消息请求出错:', error);
             alert('发送消息请求出错，请稍后再试');
+            messageInput.value = content;
         });
     }
     
@@ -309,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('收到无效的WebSocket消息:', message);
             return;
         }
+        ackMessage(message);
 
         // 兼容处理 senderId 和 sendUserId
         const msgSenderId = message.senderId || message.sendUserId;
@@ -316,6 +398,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const msgSenderIdStr = String(msgSenderId);
         const currentContactIdStr = String(currentContactId);
         const msgContactIdStr = String(message.contactId);
+        const previousMaxMessageId = getMaxRenderedMessageId();
 
         // 检查是否是当前正在聊天的联系人发来的消息
         // 逻辑：
@@ -328,8 +411,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const existingMessages = chatMessages.querySelectorAll('.message');
             let isDuplicate = false;
             
-            // 使用消息内容和发送者ID来判断是否为重复消息
+            // 优先使用服务端 messageId 去重，兼容旧消息再按内容和发送者兜底
             for (let i = 0; i < existingMessages.length; i++) {
+                if (message.messageId && existingMessages[i].dataset.messageId === String(message.messageId)) {
+                    isDuplicate = true;
+                    console.log('检测到重复消息，跳过显示');
+                    break;
+                }
                 const msgContent = existingMessages[i].querySelector('.message-content').textContent;
                 const isSent = existingMessages[i].classList.contains('sent');
                 const existingSenderId = isSent ? userId : message.sendUserId;
@@ -348,6 +436,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 直接传递原始 message 对象，addMessageToChat 会处理兼容性
                 addMessageToChat(message);
             }
+            if (previousMaxMessageId && message.messageId && Number(message.messageId) > previousMaxMessageId + 1) {
+                loadMissingMessages(previousMaxMessageId);
+            }
+            if (msgSenderIdStr !== currentUserIdStr) {
+                markCurrentSessionRead(message.messageId);
+            }
         }
         
         // 无论是否是当前联系人，都刷新联系人列表以显示最新消息预览
@@ -360,6 +454,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 2. 后台同步（防止缓存，增加时间戳）
         loadContacts();
+    });
+
+    ws.onConnectionChange(isConnected => {
+        if (isConnected) {
+            loadMissingMessages();
+        }
     });
     
     // 更新联系人列表预览（乐观更新）

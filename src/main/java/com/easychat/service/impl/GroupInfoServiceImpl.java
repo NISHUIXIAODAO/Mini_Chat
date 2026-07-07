@@ -5,12 +5,12 @@ import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.entity.DTO.request.SetGroupDTO;
 import com.easychat.enums.MessageStatusEnum;
-import com.easychat.kafka.KafkaMessageProducer;
 import com.easychat.mapper.*;
 import com.easychat.service.IGroupInfoService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IRedisService;
+import com.easychat.service.application.MessagePushService;
 import com.easychat.utils.CopyTools;
 import com.easychat.webSocket.ChannelContextUtils;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +45,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
     private final IRedisService redisService;
     private final ChannelContextUtils channelContextUtils;
     private final ChatMessageMapper chatMessageMapper;
-    private final KafkaMessageProducer kafkaMessageProducer;
+    private final MessagePushService messagePushService;
     private final GroupInfoMapper groupInfoMapper;
 
     /***
@@ -119,8 +119,6 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
 
         //将新建群组联系人加入redis中
         redisService.addUserContact(redisService.generateRedisKey(groupInfo.getGroupOwnerId() , CONTACT_TYPE_GROUPS) ,groupInfo.getGroupId());
-        //将联系人通道添加到群组通道
-        channelContextUtils.addUser2Group(groupInfo.getGroupOwnerId(), groupInfo.getGroupId());
 
         //发送ws消息
         chatSessionUser.setLastMessage(GROUP_CREATE.getInitMessage());
@@ -130,7 +128,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
         MessageSendDTO messageSendDTO = CopyTools.copy(chatMassage);
         messageSendDTO.setExtendData(chatSessionUser);
         messageSendDTO.setLastMessage(chatSessionUser.getLastMessage());
-        kafkaMessageProducer.sendMessage(messageSendDTO);
+        messagePushService.pushToUser(groupInfo.getGroupOwnerId(), messageSendDTO);
 
 
         return ResultVo.success("创建群聊成功");

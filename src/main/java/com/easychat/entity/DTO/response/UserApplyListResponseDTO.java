@@ -1,15 +1,18 @@
 package com.easychat.entity.DTO.response;
 
-import io.swagger.models.auth.In;
 import lombok.Data;
 import lombok.experimental.Accessors;
-
-import java.time.LocalDateTime;
 
 @Data
 @Accessors(chain = true)
 public class UserApplyListResponseDTO {
+    private Integer applyId;
+
     private Integer applyUserId;
+
+    private Integer contactId;
+
+    private Integer contactType;
 
     private String applyInfo;
 

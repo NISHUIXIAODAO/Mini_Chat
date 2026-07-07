@@ -14,7 +14,9 @@ public enum MessageTypeEnum {
     GROUP_NAME_UPDATE(10, "", "更新群昵称"),
     LEAVE_GROUP(11, "%s退出了群聊", "退出群聊"),
     REMOVE_GROUP(12, "%s被管理员移出了群聊", "被管理员移出了群聊"),
-    ADD_FRIEND_SELF(13,"","添加好友打招呼消息");
+    ADD_FRIEND_SELF(13,"","添加好友打招呼消息"),
+    MESSAGE_ACK(14, "", "消息送达回执"),
+    MESSAGE_READ(15, "", "消息已读回执");
 
     private final Integer type;
     private final String initMessage;

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.easychat.entity.DO.ChatMessage;
 import com.easychat.entity.DTO.request.ChatSendMessageDTO;
 import com.easychat.entity.DTO.request.GetMessageHistoryDTO;
+import com.easychat.entity.DTO.request.MessageAckDTO;
 import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.DTO.response.MessageHistoryResponseDTO;
 import com.easychat.handler.GlobalExceptionHandler;
@@ -69,6 +70,8 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
             messageList = chatMessageMapper.getMessageHistory(
                     getMessageHistoryDTO.getSessionId(),
                     getMessageHistoryDTO.getLastTimestamp(),
+                    getMessageHistoryDTO.getLastMessageId(),
+                    getMessageHistoryDTO.getForward(),
                     getMessageHistoryDTO.getPageSize()
             );
         } else if (getMessageHistoryDTO.getContactId() != null) {
@@ -79,6 +82,8 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
                 messageList = chatMessageMapper.getMessageHistoryByContactId(
                         contactId,
                         getMessageHistoryDTO.getLastTimestamp(),
+                        getMessageHistoryDTO.getLastMessageId(),
+                        getMessageHistoryDTO.getForward(),
                         getMessageHistoryDTO.getPageSize()
                 );
             } else {
@@ -87,6 +92,8 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
                 messageList = chatMessageMapper.getMessageHistory(
                         sessionId,
                         getMessageHistoryDTO.getLastTimestamp(),
+                        getMessageHistoryDTO.getLastMessageId(),
+                        getMessageHistoryDTO.getForward(),
                         getMessageHistoryDTO.getPageSize()
                 );
                 log.info("GetHistory Result: count={}", messageList.size());
@@ -110,5 +117,15 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         });
 
         return resultList;
+    }
+
+    @Override
+    public void ackDelivered(MessageAckDTO ackDTO, HttpServletRequest request) {
+        messageApplicationService.ackDelivered(ackDTO, request);
+    }
+
+    @Override
+    public void markRead(MessageAckDTO ackDTO, HttpServletRequest request) {
+        messageApplicationService.markRead(ackDTO, request);
     }
 }

@@ -8,11 +8,14 @@
         <id column="contact_id" property="contactId" />
         <result column="session_id" property="sessionId" />
         <result column="contact_name" property="contactName" />
+        <result column="unread_count" property="unreadCount" />
+        <result column="last_read_message_id" property="lastReadMessageId" />
+        <result column="last_read_time" property="lastReadTime" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="Base_Column_List">
-        user_id, contact_id, session_id, contact_name
+        user_id, contact_id, session_id, contact_name, unread_count, last_read_message_id, last_read_time
     </sql>
 
 

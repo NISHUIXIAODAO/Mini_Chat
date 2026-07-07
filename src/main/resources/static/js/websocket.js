@@ -100,6 +100,7 @@ class WebSocketManager {
                 this._triggerCallbacks('systemNotice', message);
                 break;
             case 2: // 聊天消息
+                this._ackChatMessage(message);
                 this._triggerCallbacks('chatMessage', message);
                 break;
             case 3: // 好友请求
@@ -108,6 +109,28 @@ class WebSocketManager {
             default:
                 console.log('未知消息类型:', message.messageType);
         }
+    }
+
+    _ackChatMessage(message) {
+        const token = localStorage.getItem('token');
+        const userId = localStorage.getItem('userId');
+        if (!token || !message || !message.messageId || String(message.sendUserId) === String(userId)) {
+            return;
+        }
+        fetch('/chat/message/ack', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            },
+            body: JSON.stringify({
+                messageId: message.messageId,
+                sessionId: message.sessionId,
+                contactId: message.sendUserId
+            })
+        }).catch(error => {
+            console.error('消息ACK发送失败:', error);
+        });
     }
     
     // 处理连接关闭事件

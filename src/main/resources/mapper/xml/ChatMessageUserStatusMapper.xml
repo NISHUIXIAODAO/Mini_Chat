@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.easychat.mapper.ChatMessageUserStatusMapper">
+
+    <resultMap id="BaseResultMap" type="com.easychat.entity.DO.ChatMessageUserStatus">
+        <id column="message_id" property="messageId" />
+        <id column="user_id" property="userId" />
+        <result column="session_id" property="sessionId" />
+        <result column="status" property="status" />
+        <result column="delivered_time" property="deliveredTime" />
+        <result column="read_time" property="readTime" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        message_id, session_id, user_id, status, delivered_time, read_time
+    </sql>
+</mapper>

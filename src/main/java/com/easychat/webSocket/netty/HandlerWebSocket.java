@@ -26,6 +26,7 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
     private final IRedisService redisService;
     private final ChannelContextUtils channelContextUtils;
     private final Environment environment;
+    private static final AttributeKey<String> LOCATION_KEY = AttributeKey.valueOf("userLocation");
 
     public HandlerWebSocket(IJWTService jwtService,
                             IRedisService redisService,
@@ -79,7 +80,8 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
         
         if (userId != null) {
             log.info("用户 {} 下线，清理Redis位置信息", userId);
-            redisService.removeUserLocation(userId);
+            String location = channel.attr(LOCATION_KEY).get();
+            redisService.removeUserLocation(userId, location);
         }
         
         channelContextUtils.removeContext(channel);
@@ -122,7 +124,8 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
             String serverIp = InetAddress.getLocalHost().getHostAddress();
             String serverPort = environment.getProperty("server.port");
             // 注册用户位置信息到 Redis
-            String address = serverIp + ":" + serverPort;
+            String address = serverIp + ":" + serverPort + ":" + ctx.channel().id().asShortText();
+            ctx.channel().attr(LOCATION_KEY).set(address);
             redisService.saveUserLocation(userId, address);
             log.info("用户 {} 上线，注册位置信息: {}", userId, address);
             

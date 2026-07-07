@@ -17,11 +17,13 @@
         <result column="file_size" property="fileSize" />
         <result column="file_type" property="fileType" />
         <result column="status" property="status" />
+        <result column="delivered_time" property="deliveredTime" />
+        <result column="read_time" property="readTime" />
     </resultMap>
 
     <!-- 通用查询结果列 -->
     <sql id="Base_Column_List">
-        message_id, session_id, message_type, send_user_id, message_content, send_user_nick_name, send_time, contact_id, contact_type, file_name, file_size, file_type, status
+        message_id, session_id, message_type, send_user_id, message_content, send_user_nick_name, send_time, contact_id, contact_type, file_name, file_size, file_type, status, delivered_time, read_time
     </sql>
 
 </mapper>
