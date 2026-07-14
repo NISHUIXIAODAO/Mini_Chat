@@ -3,6 +3,7 @@ package com.easychat.service.impl;
 import com.easychat.entity.DO.UserInfo;
 import com.easychat.mapper.UserInfoMapper;
 import com.easychat.service.IJWTService;
+import com.easychat.service.IRedisService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -24,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 public class JWTServiceImpl implements IJWTService {
     private final UserInfoMapper userInfoMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final IRedisService redisService;
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -34,9 +37,10 @@ public class JWTServiceImpl implements IJWTService {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String TOKEN_BLACKLIST_PREFIX = "jwt:blacklist:";
 
-    public JWTServiceImpl(UserInfoMapper userInfoMapper, RedisTemplate<String, Object> redisTemplate) {
+    public JWTServiceImpl(UserInfoMapper userInfoMapper, RedisTemplate<String, Object> redisTemplate, IRedisService redisService) {
         this.userInfoMapper = userInfoMapper;
         this.redisTemplate = redisTemplate;
+        this.redisService = redisService;
     }
 
     /***
@@ -45,8 +49,10 @@ public class JWTServiceImpl implements IJWTService {
      * @return
      */
     public String generateToken(Integer userId) {
+        String sessionId = UUID.randomUUID().toString();
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
+        claims.put("sessionId", sessionId);
 
         String jwt = Jwts.builder()
                 .setClaims(claims)//自定义内容
@@ -54,6 +60,7 @@ public class JWTServiceImpl implements IJWTService {
                 .setExpiration(new Date(System.currentTimeMillis() + expirationMillis))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)//签名算法
                 .compact();
+        redisService.saveAuthSession(userId, sessionId, expirationMillis);
         return jwt;
     }
 
@@ -128,6 +135,16 @@ public class JWTServiceImpl implements IJWTService {
         }
         return null;
     }
+
+    @Override
+    public String getSessionId(String token) {
+        if (StringUtils.hasText(token)) {
+            Object sessionId = parseJWT(token).get("sessionId");
+            return sessionId == null ? null : sessionId.toString();
+        }
+        return null;
+    }
+
     /***
      * 通过 token查询用户 ID，并进行数据库校验
      * @param token
@@ -141,6 +158,10 @@ public class JWTServiceImpl implements IJWTService {
         //解析token
         Integer userId = getUserId(token);
         if (userId == null) {
+            return false;
+        }
+        String sessionId = getSessionId(token);
+        if (!redisService.isCurrentAuthSession(userId, sessionId)) {
             return false;
         }
         //查询用户是否存在数据库中
@@ -182,6 +203,16 @@ public class JWTServiceImpl implements IJWTService {
         } catch (JwtException | IllegalArgumentException e) {
             log.warn("加入 JWT 黑名单失败，token 无效或已过期");
         }
+    }
+
+    @Override
+    public void removeCurrentSession(String token) {
+        if (!checkToken(token)) {
+            return;
+        }
+        Integer userId = getUserId(token);
+        String sessionId = getSessionId(token);
+        redisService.removeAuthSession(userId, sessionId);
     }
 
     private boolean isBlacklisted(String token) {

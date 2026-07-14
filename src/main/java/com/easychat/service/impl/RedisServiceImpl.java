@@ -16,6 +16,12 @@ import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
 @Slf4j
 public class RedisServiceImpl implements IRedisService {
 
+    private static final long ONLINE_TTL_SECONDS = 90L;
+    private static final String AUTH_SESSION_PREFIX = "auth:session:";
+    private static final String WS_ONLINE_PREFIX = "ws:online:";
+    private static final String WS_LOCATION_PREFIX = "ws:location:";
+    private static final String WS_ACTIVE_PREFIX = "ws:user:active:";
+
     private final RedisTemplate<String, Object> redisTemplate;
 
     public RedisServiceImpl(RedisTemplate<String, Object> redisTemplate) {
@@ -39,29 +45,86 @@ public class RedisServiceImpl implements IRedisService {
     }
 
 
-    /***
-     * 获取用户心跳
-     * @param userId
-     * @return
-     */
-    public Long getUserHeartBeat(Integer userId){
-        return (Long) redisTemplate.opsForValue().get("heartBeat" + userId);
+    @Override
+    public void saveAuthSession(Integer userId, String sessionId, long ttlMillis) {
+        if (userId == null || sessionId == null || ttlMillis <= 0) {
+            return;
+        }
+        redisTemplate.opsForValue().set(getAuthSessionKey(userId), sessionId, ttlMillis, TimeUnit.MILLISECONDS);
     }
 
-    /***
-     * 保存用户心跳
-     * @param userId
-     */
-    public void saveHeartBeat(Integer userId){
-        redisTemplate.opsForValue().set("heartBeat" + userId, System.currentTimeMillis(),11);
+    @Override
+    public boolean isCurrentAuthSession(Integer userId, String sessionId) {
+        if (userId == null || sessionId == null) {
+            return false;
+        }
+        Object currentSessionId = redisTemplate.opsForValue().get(getAuthSessionKey(userId));
+        return sessionId.equals(currentSessionId);
     }
 
-    /***
-     * 移除用户心跳
-     * @param userId
-     */
-    public void removeUserHeartBeat(Integer userId){
-        redisTemplate.delete("heartBeat" + userId);
+    @Override
+    public void removeAuthSession(Integer userId, String sessionId) {
+        if (userId == null || sessionId == null) {
+            return;
+        }
+        Object currentSessionId = redisTemplate.opsForValue().get(getAuthSessionKey(userId));
+        if (sessionId.equals(currentSessionId)) {
+            redisTemplate.delete(getAuthSessionKey(userId));
+        }
+    }
+
+    @Override
+    public void saveOnlineConnection(Integer userId, String connectionId, String location) {
+        if (userId == null || connectionId == null) {
+            return;
+        }
+        redisTemplate.opsForValue().set(getOnlineKey(userId, connectionId), System.currentTimeMillis(), ONLINE_TTL_SECONDS, TimeUnit.SECONDS);
+        redisTemplate.opsForValue().set(getActiveKey(userId), connectionId, ONLINE_TTL_SECONDS, TimeUnit.SECONDS);
+        if (location != null) {
+            redisTemplate.opsForValue().set(getLocationKey(userId, connectionId), location, ONLINE_TTL_SECONDS, TimeUnit.SECONDS);
+        }
+    }
+
+    @Override
+    public void refreshOnlineConnection(Integer userId, String connectionId) {
+        if (userId == null || connectionId == null) {
+            return;
+        }
+        redisTemplate.expire(getOnlineKey(userId, connectionId), ONLINE_TTL_SECONDS, TimeUnit.SECONDS);
+        redisTemplate.expire(getLocationKey(userId, connectionId), ONLINE_TTL_SECONDS, TimeUnit.SECONDS);
+        Object activeConnectionId = redisTemplate.opsForValue().get(getActiveKey(userId));
+        if (connectionId.equals(activeConnectionId)) {
+            redisTemplate.expire(getActiveKey(userId), ONLINE_TTL_SECONDS, TimeUnit.SECONDS);
+        }
+    }
+
+    @Override
+    public void removeOnlineConnection(Integer userId, String connectionId) {
+        if (userId == null || connectionId == null) {
+            return;
+        }
+        redisTemplate.delete(getOnlineKey(userId, connectionId));
+        redisTemplate.delete(getLocationKey(userId, connectionId));
+        Object activeConnectionId = redisTemplate.opsForValue().get(getActiveKey(userId));
+        if (connectionId.equals(activeConnectionId)) {
+            redisTemplate.delete(getActiveKey(userId));
+        }
+    }
+
+    @Override
+    public String getActiveConnectionId(Integer userId) {
+        Object connectionId = redisTemplate.opsForValue().get(getActiveKey(userId));
+        return connectionId == null ? null : connectionId.toString();
+    }
+
+    @Override
+    public String getActiveUserLocation(Integer userId) {
+        String connectionId = getActiveConnectionId(userId);
+        if (connectionId == null) {
+            return null;
+        }
+        Object location = redisTemplate.opsForValue().get(getLocationKey(userId, connectionId));
+        return location == null ? null : location.toString();
     }
     /***
      * 校验验证码
@@ -87,7 +150,12 @@ public class RedisServiceImpl implements IRedisService {
         //清除旧的联系人
         redisTemplate.delete(userKey);
         //将联系人ID列表加入
-        redisTemplate.opsForList().rightPushAll(userKey,contactList);
+        if (contactList == null || contactList.isEmpty()) {
+            return;
+        }
+        for (Integer contactId : contactList) {
+            redisTemplate.opsForList().rightPush(userKey, contactId);
+        }
     }
 
     public void addUserContact(String userKey , Integer contactId){
@@ -111,39 +179,39 @@ public class RedisServiceImpl implements IRedisService {
             return result;
         }
         for (Object contactId : contactList) {
-            if (contactId instanceof Integer) {
-                result.add((Integer) contactId);
-            } else if (contactId instanceof Number) {
-                result.add(((Number) contactId).intValue());
-            } else if (contactId instanceof String) {
-                result.add(Integer.valueOf((String) contactId));
-            }
+            addContactId(result, contactId);
         }
         return result;
     }
 
-    @Override
-    public void saveUserLocation(Integer userId, String ip) {
-        redisTemplate.opsForValue().set("user:location:" + userId, ip, 1, TimeUnit.DAYS);
-    }
-
-    @Override
-    public String getUserLocation(Integer userId) {
-        return (String) redisTemplate.opsForValue().get("user:location:" + userId);
-    }
-
-    @Override
-    public void removeUserLocation(Integer userId) {
-        redisTemplate.delete("user:location:" + userId);
-    }
-
-    @Override
-    public void removeUserLocation(Integer userId, String expectedLocation) {
-        String key = "user:location:" + userId;
-        Object currentLocation = redisTemplate.opsForValue().get(key);
-        if (expectedLocation != null && expectedLocation.equals(currentLocation)) {
-            redisTemplate.delete(key);
+    private void addContactId(List<Integer> result, Object contactId) {
+        if (contactId instanceof Integer) {
+            result.add((Integer) contactId);
+        } else if (contactId instanceof Number) {
+            result.add(((Number) contactId).intValue());
+        } else if (contactId instanceof String) {
+            result.add(Integer.valueOf((String) contactId));
+        } else if (contactId instanceof List) {
+            for (Object nestedContactId : (List<?>) contactId) {
+                addContactId(result, nestedContactId);
+            }
         }
+    }
+
+    private String getAuthSessionKey(Integer userId) {
+        return AUTH_SESSION_PREFIX + userId;
+    }
+
+    private String getOnlineKey(Integer userId, String connectionId) {
+        return WS_ONLINE_PREFIX + userId + ":" + connectionId;
+    }
+
+    private String getLocationKey(Integer userId, String connectionId) {
+        return WS_LOCATION_PREFIX + userId + ":" + connectionId;
+    }
+
+    private String getActiveKey(Integer userId) {
+        return WS_ACTIVE_PREFIX + userId;
     }
 
 }

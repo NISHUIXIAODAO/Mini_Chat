@@ -5,6 +5,7 @@ import com.easychat.entity.DTO.request.RegisterDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IUserInfoService;
+import com.easychat.service.application.UserOnlineService;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -23,10 +24,12 @@ import javax.servlet.http.HttpServletResponse;
 public class UserInfoController {
     private final IUserInfoService iUserInfoService;
     private final IJWTService jwtService;
+    private final UserOnlineService userOnlineService;
 
-    public UserInfoController(IUserInfoService iUserInfoService, IJWTService jwtService) {
+    public UserInfoController(IUserInfoService iUserInfoService, IJWTService jwtService, UserOnlineService userOnlineService) {
         this.iUserInfoService = iUserInfoService;
         this.jwtService = jwtService;
+        this.userOnlineService = userOnlineService;
     }
 
     @PostMapping("/login")
@@ -37,8 +40,16 @@ public class UserInfoController {
     @PostMapping("/logout")
     public ResultVo<Object> logout(HttpServletRequest request){
         String token = jwtService.extractToken(request);
+        Integer userId = null;
+        if (jwtService.checkToken(token)) {
+            userId = jwtService.getUserId(token);
+        }
+        jwtService.removeCurrentSession(token);
         // 主动退出时将当前 token 拉黑，直到 JWT 自身过期为止。
         jwtService.blacklistToken(token);
+        if (userId != null) {
+            userOnlineService.forceOffline(userId, "账号已退出登录");
+        }
         return ResultVo.success("退出登录成功");
     }
 

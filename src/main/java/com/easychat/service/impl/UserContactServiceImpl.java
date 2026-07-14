@@ -30,7 +30,7 @@ import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_FRIEND;
 import static com.easychat.utils.ConstantUtils.ROBOT_ID;
 import static com.easychat.utils.ConstantUtils.ROBOT_MESSAGE;
 import static com.easychat.utils.ConstantUtils.ROBOT_NAME;
-import static com.easychat.utils.SessionIdUtils.generateSessionId;
+import static com.easychat.utils.SessionIdUtils.generatePrivateSessionId;
 
 /**
  * <p>
@@ -94,7 +94,7 @@ public class UserContactServiceImpl extends ServiceImpl<UserContactMapper, UserC
         userContactMapper.insert(userContact);
 
         Date curDate = new Date();
-        String sessionId = generateSessionId(1, userId);
+        String sessionId = generatePrivateSessionId(ROBOT_ID, userId);
         ChatSession chatSession = new ChatSession()
                 .setSessionId(sessionId)
                 .setLastReceiveTime(curDate.getTime())

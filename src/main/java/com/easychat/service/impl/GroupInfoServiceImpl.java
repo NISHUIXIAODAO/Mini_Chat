@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 import static com.easychat.enums.FriendStatusEnum.FRIEND_YES;
 import static com.easychat.enums.MessageTypeEnum.GROUP_CREATE;
 import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
-import static com.easychat.utils.SessionIdUtils.generateSessionId;
+import static com.easychat.utils.SessionIdUtils.generateGroupSessionId;
 
 /**
  * <p>
@@ -88,7 +88,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
 
 
         //创建会话
-        String sessionId = generateSessionId(userId,groupInfo.getGroupId());
+        String sessionId = generateGroupSessionId(groupInfo.getGroupId());
         if(chatSessionMapper.boolSessionId(sessionId) != null){
             chatSessionMapper.updateBySessionId(sessionId,GROUP_CREATE.getInitMessage(),System.currentTimeMillis());
         }

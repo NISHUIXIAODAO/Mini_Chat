@@ -30,6 +30,10 @@ import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
 @Component
 @Slf4j
 public class ChannelContextUtils {
+    public static final AttributeKey<Integer> USER_ID_KEY = AttributeKey.valueOf("userId");
+    public static final AttributeKey<String> CONNECTION_ID_KEY = AttributeKey.valueOf("connectionId");
+    public static final AttributeKey<String> LOCATION_KEY = AttributeKey.valueOf("userLocation");
+
     private final IRedisService redisService;
     private final UserInfoMapper userInfoMapper;
     private final ChatSessionUserMapper chatSessionUserMapper;
@@ -59,17 +63,10 @@ public class ChannelContextUtils {
      * @param channel
      */
     public void addContext(Integer userId, Channel channel){
-        String channelId = channel.id().toString();
-        AttributeKey attributeKey = null;
-        if(!AttributeKey.exists(channelId)){
-            attributeKey = AttributeKey.newInstance(channelId);
-        }else {
-            attributeKey = AttributeKey.valueOf(channelId);
-        }
-        channel.attr(attributeKey).set(userId);
+        channel.attr(USER_ID_KEY).set(userId);
+        channel.attr(CONNECTION_ID_KEY).set(channel.id().asShortText());
 
         User_Context_Map.put(userId, channel);
-        redisService.saveHeartBeat(userId);
 
         List<Integer> friendIdList = redisService.getUserContactList(redisService.generateRedisKey(userId,CONTACT_TYPE_FRIEND));
         List<Integer> groupIdList = redisService.getUserContactList(redisService.generateRedisKey(userId,CONTACT_TYPE_GROUPS));
@@ -132,15 +129,43 @@ public class ChannelContextUtils {
      * @param channel
      */
     public void removeContext(Channel channel){
-        Attribute<Integer> attribute = channel.attr(AttributeKey.valueOf(channel.id().toString()));
+        Attribute<Integer> attribute = channel.attr(USER_ID_KEY);
         Integer userId = attribute.get();
-        if(userId != null){
-            User_Context_Map.remove(userId);
+        if (userId == null) {
+            return;
         }
-        //清除redis中用户登录的心跳
-        redisService.removeUserHeartBeat(userId);
+        String connectionId = channel.attr(CONNECTION_ID_KEY).get();
+        User_Context_Map.remove(userId, channel);
+        redisService.removeOnlineConnection(userId, connectionId);
         //更新用户最后离线时间
         userInfoMapper.updateLastOffTimeById(userId,LocalDateTime.now());
+    }
+
+    public void refreshContext(Channel channel) {
+        Integer userId = channel.attr(USER_ID_KEY).get();
+        String connectionId = channel.attr(CONNECTION_ID_KEY).get();
+        redisService.refreshOnlineConnection(userId, connectionId);
+    }
+
+    public void saveConnectionLocation(Channel channel, String location) {
+        Integer userId = channel.attr(USER_ID_KEY).get();
+        String connectionId = channel.attr(CONNECTION_ID_KEY).get();
+        channel.attr(LOCATION_KEY).set(location);
+        redisService.saveOnlineConnection(userId, connectionId, location);
+    }
+
+    public boolean forceOffline(Integer userId, String reason) {
+        Channel channel = User_Context_Map.get(userId);
+        if (channel == null) {
+            return false;
+        }
+        MessageSendDTO<String> messageSendDTO = new MessageSendDTO<>();
+        messageSendDTO.setMessageType(MessageTypeEnum.FORCE_OFF_LINE.getType());
+        messageSendDTO.setContactId(userId);
+        messageSendDTO.setMessageContent(reason);
+        channel.writeAndFlush(new TextWebSocketFrame(JsonUtils.convertObjToJson(messageSendDTO)));
+        channel.close();
+        return true;
     }
 
     /***

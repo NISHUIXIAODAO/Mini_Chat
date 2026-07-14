@@ -45,7 +45,8 @@ import static com.easychat.enums.FriendStatusEnum.FRIEND_BLACK;
 import static com.easychat.enums.FriendStatusEnum.FRIEND_YES;
 import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_FRIEND;
 import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
-import static com.easychat.utils.SessionIdUtils.generateSessionId;
+import static com.easychat.utils.SessionIdUtils.generateGroupSessionId;
+import static com.easychat.utils.SessionIdUtils.generatePrivateSessionId;
 
 @Slf4j
 @Service
@@ -172,6 +173,7 @@ public class ContactApplicationService {
                 return ResultVo.success("已加入群聊");
             }
             saveOrUpdateContact(applyUserId, groupId, CONTACT_TYPE_GROUPS, FRIEND_YES.getCode());
+            agreeGroupContact(applyUserId, groupId);
             log.info("无需同意，添加成功");
         } else {
             userContactApplyMapper.upsertApply(applyUserId, groupOwnerId, CONTACT_TYPE_GROUPS, groupId,
@@ -201,7 +203,7 @@ public class ContactApplicationService {
             for (Integer friendId : friendIdList) {
                 UserInfo friendInfo = userInfoMapper.getUserById(friendId);
                 if (friendInfo != null) {
-                    String sessionId = generateSessionId(userId, friendId);
+                    String sessionId = generatePrivateSessionId(userId, friendId);
                     ChatSession chatSession = chatSessionMapper.getBySessionId(sessionId);
 
                     Map<String, Object> contactMap = new HashMap<>();
@@ -217,7 +219,7 @@ public class ContactApplicationService {
             for (Integer groupId : groupIdList) {
                 GroupInfo groupInfo = groupInfoMapper.getByGroupId(groupId);
                 if (groupInfo != null) {
-                    String sessionId = generateSessionId(userId, groupId);
+                    String sessionId = generateGroupSessionId(groupId);
                     ChatSession chatSession = chatSessionMapper.getBySessionId(sessionId);
 
                     Map<String, Object> contactMap = new HashMap<>();
@@ -300,7 +302,7 @@ public class ContactApplicationService {
     }
 
     private void agreeGroupContact(final Integer applyUserId, final Integer groupId) {
-        String sessionId = generateSessionId(applyUserId, groupId);
+        String sessionId = generateGroupSessionId(groupId);
         final GroupInfo groupInfo = groupInfoMapper.getByGroupId(groupId);
         sessionDomainService.saveOrUpdateSessionUser(applyUserId, groupId, sessionId, groupInfo.getGroupName());
 
@@ -336,7 +338,7 @@ public class ContactApplicationService {
         saveOrUpdateContact(applyUserId, receiveUserId, CONTACT_TYPE_FRIEND, FRIEND_YES.getCode());
         saveOrUpdateContact(receiveUserId, applyUserId, CONTACT_TYPE_FRIEND, FRIEND_YES.getCode());
 
-        String sessionId = generateSessionId(applyUserId, receiveUserId);
+        String sessionId = generatePrivateSessionId(applyUserId, receiveUserId);
         sessionDomainService.saveOrUpdateSession(sessionId, applyInfo, System.currentTimeMillis());
 
         UserInfo receiveUser = userInfoMapper.getUserById(receiveUserId);

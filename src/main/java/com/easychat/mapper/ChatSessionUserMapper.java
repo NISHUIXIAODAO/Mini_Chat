@@ -64,4 +64,8 @@ public interface ChatSessionUserMapper extends BaseMapper<ChatSessionUser> {
 
     @Select("select user_id from chat_session_user where session_id = #{sessionId}")
     List<Integer> getUserIdsBySessionId(@Param("sessionId") String sessionId);
+
+    @Select("select count(1) from chat_session_user where session_id = #{sessionId} and user_id = #{userId}")
+    int countBySessionIdAndUserId(@Param("sessionId") String sessionId,
+                                  @Param("userId") Integer userId);
 }

@@ -7,6 +7,7 @@ import com.easychat.entity.DTO.request.LoginDTO;
 import com.easychat.entity.DTO.request.RegisterDTO;
 import com.easychat.mapper.UserInfoMapper;
 import com.easychat.service.*;
+import com.easychat.service.application.UserOnlineService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     private final IJWTService jwtService;
     private final IRedisService redisService;
     private final IUserContactService userContactService;
+    private final UserOnlineService userOnlineService;
 
 
     /***
@@ -73,9 +75,9 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         //生成jwt
         String token = jwtService.generateToken(userId);
 
-        Long lastHeartBeat = redisService.getUserHeartBeat(userId);
-        if(lastHeartBeat != null){
-            return ResultVo.failed("用户已在别处登录");
+        boolean oldConnectionOffline = userOnlineService.forceOffline(userId, "账号已在其他设备登录");
+        if (!oldConnectionOffline) {
+            log.info("用户 {} 没有可下线的旧连接，或旧连接所在节点未确认下线", userId);
         }
 
         //查询联系人(朋友)

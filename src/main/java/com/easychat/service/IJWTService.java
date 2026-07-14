@@ -9,7 +9,9 @@ public interface IJWTService {
     public boolean checkToken(String token);
     public Claims parseJWT(String token);
     public Integer getUserId(String token);
+    public String getSessionId(String token);
     public Boolean verifyToken(String token);
     public String extractToken(HttpServletRequest request);
     public void blacklistToken(String token);
+    public void removeCurrentSession(String token);
 }

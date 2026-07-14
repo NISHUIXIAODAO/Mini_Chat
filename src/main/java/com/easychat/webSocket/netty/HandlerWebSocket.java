@@ -1,6 +1,5 @@
 package com.easychat.webSocket.netty;
 
-import com.easychat.service.IRedisService;
 import com.easychat.service.IJWTService;
 import com.easychat.webSocket.ChannelContextUtils;
 import io.netty.channel.Channel;
@@ -9,8 +8,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -23,17 +20,13 @@ import java.net.InetAddress;
 @ChannelHandler.Sharable
 public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketFrame> {
     private final IJWTService jwtService;
-    private final IRedisService redisService;
     private final ChannelContextUtils channelContextUtils;
     private final Environment environment;
-    private static final AttributeKey<String> LOCATION_KEY = AttributeKey.valueOf("userLocation");
 
     public HandlerWebSocket(IJWTService jwtService,
-                            IRedisService redisService,
                             ChannelContextUtils channelContextUtils,
                             Environment environment) {
         this.jwtService = jwtService;
-        this.redisService = redisService;
         this.channelContextUtils = channelContextUtils;
         this.environment = environment;
     }
@@ -74,16 +67,6 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         log.info("有连接断开");
         Channel channel = ctx.channel();
-        // 尝试从 Channel 属性中获取 userId
-        Attribute<Integer> attribute = channel.attr(AttributeKey.valueOf(channel.id().toString()));
-        Integer userId = attribute.get();
-        
-        if (userId != null) {
-            log.info("用户 {} 下线，清理Redis位置信息", userId);
-            String location = channel.attr(LOCATION_KEY).get();
-            redisService.removeUserLocation(userId, location);
-        }
-        
         channelContextUtils.removeContext(channel);
     }
 
@@ -91,10 +74,9 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame textWebSocketFrame) throws Exception {
         Channel channel = ctx.channel();
-        Attribute<Integer> attribute = channel.attr(AttributeKey.valueOf(channel.id().toString()));
-        Integer userId = attribute.get();
+        Integer userId = channel.attr(ChannelContextUtils.USER_ID_KEY).get();
         log.info("服务器收到来自userId（发送人）为 {} 的消息：{}" , userId , textWebSocketFrame.text());
-        redisService.saveHeartBeat(userId);
+        channelContextUtils.refreshContext(channel);
     }
 
     @Override
@@ -125,8 +107,7 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
             String serverPort = environment.getProperty("server.port");
             // 注册用户位置信息到 Redis
             String address = serverIp + ":" + serverPort + ":" + ctx.channel().id().asShortText();
-            ctx.channel().attr(LOCATION_KEY).set(address);
-            redisService.saveUserLocation(userId, address);
+            channelContextUtils.saveConnectionLocation(ctx.channel(), address);
             log.info("用户 {} 上线，注册位置信息: {}", userId, address);
             
             log.info("");
