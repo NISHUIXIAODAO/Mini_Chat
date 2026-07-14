@@ -14,6 +14,8 @@ export class ChatSocket {
   private noticeCallbacks: Callback<ChatMessage>[] = [];
   private friendCallbacks: Callback<ChatMessage>[] = [];
   private statusCallbacks: Callback<boolean>[] = [];
+  private forceOfflineCallbacks: Callback<ChatMessage>[] = [];
+  private manualClose = false;
 
   constructor(
     private readonly token: string,
@@ -25,6 +27,7 @@ export class ChatSocket {
       return;
     }
 
+    this.manualClose = false;
     const wsUrl = `ws://${window.location.hostname}:5051/ws?token=${encodeURIComponent(this.token)}`;
     this.socket = new WebSocket(wsUrl);
     this.socket.onopen = () => this.handleOpen();
@@ -34,6 +37,7 @@ export class ChatSocket {
   }
 
   disconnect() {
+    this.manualClose = true;
     this.stopHeartbeat();
     this.socket?.close();
     this.socket = null;
@@ -73,6 +77,10 @@ export class ChatSocket {
     this.statusCallbacks.push(callback);
   }
 
+  onForceOffline(callback: Callback<ChatMessage>) {
+    this.forceOfflineCallbacks.push(callback);
+  }
+
   private handleOpen() {
     this.reconnectAttempts = 0;
     this.emitStatus(true);
@@ -91,6 +99,12 @@ export class ChatSocket {
       case 3:
         this.friendCallbacks.forEach((callback) => callback(message));
         break;
+      case 7:
+        this.manualClose = true;
+        this.stopHeartbeat();
+        this.forceOfflineCallbacks.forEach((callback) => callback(message));
+        this.socket?.close();
+        break;
       default:
         this.chatCallbacks.forEach((callback) => callback(message));
     }
@@ -99,6 +113,9 @@ export class ChatSocket {
   private handleClose() {
     this.emitStatus(false);
     this.stopHeartbeat();
+    if (this.manualClose) {
+      return;
+    }
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       return;
     }

@@ -60,7 +60,7 @@ public class NettyWebSocketStarter {
                                     //readerIdleTime:读超时事件，服务器一段时间内没有收到来自客户端的消息
                                     //writerIdleTime:写超时事件，客户端一段时间内没有收到来自服务端的消息
                                     //allIdleTime：  所有类型的超时时间
-                                    .addLast(new IdleStateHandler(1000,0,0, TimeUnit.SECONDS)) // todo 超时时间
+                                    .addLast(new IdleStateHandler(75,0,0, TimeUnit.SECONDS))
                                     //自定义 心跳超时处理器 HandlerHeartBeat
                                     .addLast(handlerHeartBeat)
                                     //将http协议升级为ws协议

@@ -44,7 +44,7 @@ public class MessagePushService {
 
     public void pushToUser(Integer userId, MessageSendDTO<?> message) {
         try {
-            String targetAddress = redisService.getUserLocation(userId);
+            String targetAddress = redisService.getActiveUserLocation(userId);
             log.info("准备推送消息给用户: {}, Redis记录地址: {}, 本机地址: {}:{}", userId, targetAddress, localIp, serverPort);
 
             if (targetAddress == null) {

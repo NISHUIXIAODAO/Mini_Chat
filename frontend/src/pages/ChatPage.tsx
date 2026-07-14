@@ -33,16 +33,20 @@ export default function ChatPage() {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight });
   }, [messages]);
 
-  const handleLogout = useCallback(async () => {
-    if (token) {
-      await apiPost("/userInfo/logout");
-    }
+  const clearLocalSession = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
     localStorage.removeItem("nickName");
     socketRef.current?.disconnect();
     navigate("/");
-  }, [navigate, token]);
+  }, [navigate]);
+
+  const handleLogout = useCallback(async () => {
+    if (token) {
+      await apiPost("/userInfo/logout");
+    }
+    clearLocalSession();
+  }, [clearLocalSession, token]);
 
   const loadContacts = useCallback(async () => {
     const response = await apiGet<Contact[]>("/userContact/getContactList");
@@ -116,10 +120,14 @@ export default function ChatPage() {
       alert(`收到来自 ${message.sendUserNickName || "用户"} 的好友请求: ${message.messageContent}`);
       loadContactsRef.current?.();
     });
+    socket.onForceOffline((message) => {
+      alert(message.messageContent || "账号已在其他设备登录");
+      clearLocalSession();
+    });
     socket.connect();
 
     return () => socket.disconnect();
-  }, [navigate, token, userId]);
+  }, [clearLocalSession, navigate, token, userId]);
 
   function updateContactPreview(contactId: string, content: string) {
     setContacts((current) => {

@@ -80,8 +80,6 @@ public class MessageApplicationService {
         checkContactAllowed(userId, contactId);
 
         String sendUserNickName = userInfoMapper.getNickNameByUserId(userId);
-        String sessionId = SessionIdUtils.generateSessionId(userId, contactId);
-        log.info("SaveMessage: userId={}, contactId={}, sessionId={}", userId, contactId, sessionId);
 
         Integer messageType = chatSendMessageDTO.getMessageType();
         if (messageType == null || (!messageType.equals(MessageTypeEnum.CHAT.getType())
@@ -94,6 +92,9 @@ public class MessageApplicationService {
                 : SEND_ED.getStatus();
         String cleanMessageContent = cleanHtmlTag(chatSendMessageDTO.getMessageContent());
         Integer contactType = userContactMapper.getContactTypeByContactId(userId, contactId);
+        String sessionId = resolveContactSessionId(userId, contactId, contactType);
+        log.info("SaveMessage: userId={}, contactId={}, contactType={}, sessionId={}",
+                userId, contactId, contactType, sessionId);
         long curTime = System.currentTimeMillis();
 
         String lastMessage = cleanMessageContent;
@@ -242,11 +243,29 @@ public class MessageApplicationService {
         if (ackDTO == null) {
             throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_PARAM_ERROR);
         }
+        if (ackDTO.getContactId() != null) {
+            Integer contactType = userContactMapper.getContactTypeByContactId(userId, ackDTO.getContactId());
+            return resolveContactSessionId(userId, ackDTO.getContactId(), contactType);
+        }
         if (ackDTO.getSessionId() != null && !ackDTO.getSessionId().isEmpty()) {
+            validateSessionBelongsToUser(ackDTO.getSessionId(), userId);
             return ackDTO.getSessionId();
         }
-        if (ackDTO.getContactId() != null) {
-            return SessionIdUtils.generateSessionId(userId, ackDTO.getContactId());
+        throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_PARAM_ERROR);
+    }
+
+    private void validateSessionBelongsToUser(String sessionId, Integer userId) {
+        if (chatSessionUserMapper.countBySessionIdAndUserId(sessionId, userId) <= 0) {
+            throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_PARAM_ERROR);
+        }
+    }
+
+    private String resolveContactSessionId(Integer userId, Integer contactId, Integer contactType) {
+        if (CONTACT_TYPE_GROUPS == contactType) {
+            return SessionIdUtils.generateGroupSessionId(contactId);
+        }
+        if (CONTACT_TYPE_FRIEND == contactType || ROBOT_ID.equals(contactId)) {
+            return SessionIdUtils.generatePrivateSessionId(userId, contactId);
         }
         throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_PARAM_ERROR);
     }

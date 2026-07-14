@@ -1,14 +1,12 @@
 package com.easychat.webSocket.netty;
 
+import com.easychat.webSocket.ChannelContextUtils;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -24,8 +22,7 @@ public class HandlerHeartBeat extends ChannelDuplexHandler {
             IdleStateEvent e = (IdleStateEvent) evt;
             if(e.state() == IdleState.READER_IDLE){
                 Channel channel = ctx.channel();
-                Attribute<Integer> attribute = channel.attr(AttributeKey.valueOf(channel.id().toString()));
-                Integer userId = attribute.get();
+                Integer userId = channel.attr(ChannelContextUtils.USER_ID_KEY).get();
                 log.info("用户 {} 心跳超时",userId);
                 ctx.close();
             } else if (e.state() == IdleState.WRITER_IDLE) {

@@ -32,4 +32,14 @@ public class InternalPushController {
         channelContextUtils.sendMsg(message, userId);
         return ResultVo.success("Pushed to local user");
     }
+
+    @PostMapping("/offline")
+    public ResultVo<String> forceOffline(@RequestParam(required = false) Integer userId,
+                                         @RequestBody(required = false) String reason) {
+        if (userId == null) {
+            return ResultVo.failed("userId is required for internal offline");
+        }
+        channelContextUtils.forceOffline(userId, reason);
+        return ResultVo.success("Forced local user offline");
+    }
 }

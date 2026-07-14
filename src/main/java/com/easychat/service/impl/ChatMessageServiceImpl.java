@@ -9,6 +9,7 @@ import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.DTO.response.MessageHistoryResponseDTO;
 import com.easychat.handler.GlobalExceptionHandler;
 import com.easychat.mapper.ChatMessageMapper;
+import com.easychat.mapper.ChatSessionUserMapper;
 import com.easychat.mapper.UserContactMapper;
 import com.easychat.service.IChatMessageService;
 import com.easychat.service.IJWTService;
@@ -40,15 +41,18 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
     private final IJWTService jwtService;
     private final UserContactMapper userContactMapper;
     private final ChatMessageMapper chatMessageMapper;
+    private final ChatSessionUserMapper chatSessionUserMapper;
     private final MessageApplicationService messageApplicationService;
 
     public ChatMessageServiceImpl(IJWTService jwtService,
                                   UserContactMapper userContactMapper,
                                   ChatMessageMapper chatMessageMapper,
+                                  ChatSessionUserMapper chatSessionUserMapper,
                                   MessageApplicationService messageApplicationService) {
         this.jwtService = jwtService;
         this.userContactMapper = userContactMapper;
         this.chatMessageMapper = chatMessageMapper;
+        this.chatSessionUserMapper = chatSessionUserMapper;
         this.messageApplicationService = messageApplicationService;
     }
 
@@ -66,28 +70,22 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         Integer userId = jwtService.getUserId(token);
 
         List<ChatMessage> messageList;
-        if (getMessageHistoryDTO.getSessionId() != null && !getMessageHistoryDTO.getSessionId().isEmpty()) {
-            messageList = chatMessageMapper.getMessageHistory(
-                    getMessageHistoryDTO.getSessionId(),
-                    getMessageHistoryDTO.getLastTimestamp(),
-                    getMessageHistoryDTO.getLastMessageId(),
-                    getMessageHistoryDTO.getForward(),
-                    getMessageHistoryDTO.getPageSize()
-            );
-        } else if (getMessageHistoryDTO.getContactId() != null) {
+        if (getMessageHistoryDTO.getContactId() != null) {
             Integer contactId = getMessageHistoryDTO.getContactId();
             Integer contactType = userContactMapper.getContactTypeByContactId(userId, contactId);
 
             if (contactType != null && contactType.equals(CONTACT_TYPE_GROUPS)) {
-                messageList = chatMessageMapper.getMessageHistoryByContactId(
-                        contactId,
+                String sessionId = SessionIdUtils.generateGroupSessionId(contactId);
+                log.info("GetGroupHistory: userId={}, contactId={}, sessionId={}", userId, contactId, sessionId);
+                messageList = chatMessageMapper.getMessageHistory(
+                        sessionId,
                         getMessageHistoryDTO.getLastTimestamp(),
                         getMessageHistoryDTO.getLastMessageId(),
                         getMessageHistoryDTO.getForward(),
                         getMessageHistoryDTO.getPageSize()
                 );
             } else {
-                String sessionId = SessionIdUtils.generateSessionId(userId, contactId);
+                String sessionId = SessionIdUtils.generatePrivateSessionId(userId, contactId);
                 log.info("GetHistory: userId={}, contactId={}, sessionId={}", userId, contactId, sessionId);
                 messageList = chatMessageMapper.getMessageHistory(
                         sessionId,
@@ -98,6 +96,16 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
                 );
                 log.info("GetHistory Result: count={}", messageList.size());
             }
+        } else if (getMessageHistoryDTO.getSessionId() != null && !getMessageHistoryDTO.getSessionId().isEmpty()) {
+            String sessionId = getMessageHistoryDTO.getSessionId();
+            validateSessionBelongsToUser(sessionId, userId);
+            messageList = chatMessageMapper.getMessageHistory(
+                    sessionId,
+                    getMessageHistoryDTO.getLastTimestamp(),
+                    getMessageHistoryDTO.getLastMessageId(),
+                    getMessageHistoryDTO.getForward(),
+                    getMessageHistoryDTO.getPageSize()
+            );
         } else {
             throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_PARAM_ERROR);
         }
@@ -117,6 +125,12 @@ public class ChatMessageServiceImpl extends ServiceImpl<ChatMessageMapper, ChatM
         });
 
         return resultList;
+    }
+
+    private void validateSessionBelongsToUser(String sessionId, Integer userId) {
+        if (chatSessionUserMapper.countBySessionIdAndUserId(sessionId, userId) <= 0) {
+            throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_PARAM_ERROR);
+        }
     }
 
     @Override
