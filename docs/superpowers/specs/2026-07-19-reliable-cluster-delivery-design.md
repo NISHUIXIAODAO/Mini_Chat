@@ -76,7 +76,7 @@ Topic：`easychat.push.event`，key 使用 `messageId`。事件为：
 
 新增 `spring-kafka`，生产者等待 broker 确认。消费者使用手动确认并在成功处理后提交 offset；处理异常抛出，让 Spring Kafka 按固定间隔重试。默认不配置 dead-letter topic，避免在单 broker 开发环境引入不可见的丢弃路径；超过重试上限将记录含 `eventId` 与 `traceId` 的错误日志并保留 offset 以便人工恢复。
 
-消费者以 Redis `SET NX EX` 保存 `push:consumed:{nodeId}:{eventId}`，TTL 24 小时。仅在事件在本节点至少有一个目标用户推送成功或确认本节点没有匹配的 presence 后登记完成；重复 Kafka 事件不会重复推送。
+消费者以 Redis 保存 `push:consumed:{nodeId}:{eventId}`，TTL 24 小时。消费者先检查该标记，在事件在本节点至少有一个目标用户推送成功或确认本节点没有匹配的 presence 后再登记完成；重复 Kafka 事件不会重复推送。
 
 `PushDispatcher` 遍历目标用户：只有 `UserPresenceService` 返回的 `nodeId` 等于当前节点时，调用 `LocalChannelRegistry.send`。若 presence 已指向本节点但 Channel 不存在，记录诊断日志，不跨节点重试。
 
@@ -110,4 +110,3 @@ easychat.kafka.consumer-retry-attempts=3
 - 重复事件不会导致同一节点重复 WebSocket 推送。
 - 双节点分别登录用户后，私聊和群聊实时到达；关闭节点后 TTL 到期，不再出现错误节点推送。
 - 暂停 Kafka 后消息仍入库且 Outbox 保持待投递；恢复后成功发布。
-

@@ -92,7 +92,7 @@ X-Cluster-Nonce
 X-Cluster-Signature
 ```
 
-签名输入为 `METHOD + "\\n" + PATH + "\\n" + TIMESTAMP + "\\n" + NONCE + "\\n" + SHA256(BODY)`，其中 `"\\n"` 是一个 LF 换行符；使用共享密钥计算 HMAC-SHA256。`InternalNodeClient` 负责生成这些 Header。
+签名输入为 `METHOD + "\\n" + REQUEST_TARGET + "\\n" + TIMESTAMP + "\\n" + NONCE + "\\n" + SHA256(BODY)`，其中 `REQUEST_TARGET` 为路径及原始查询参数，`"\\n"` 是一个 LF 换行符；使用共享密钥计算 HMAC-SHA256。`InternalNodeClient` 负责生成这些 Header。
 
 `InternalAuthInterceptor` 按以下顺序校验：
 

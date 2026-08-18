@@ -1,6 +1,6 @@
 package com.easychat.webSocket.netty;
 
-import com.easychat.webSocket.ChannelContextUtils;
+import com.easychat.webSocket.LocalChannelRegistry;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandler;
@@ -22,7 +22,7 @@ public class HandlerHeartBeat extends ChannelDuplexHandler {
             IdleStateEvent e = (IdleStateEvent) evt;
             if(e.state() == IdleState.READER_IDLE){
                 Channel channel = ctx.channel();
-                Integer userId = channel.attr(ChannelContextUtils.USER_ID_KEY).get();
+                Integer userId = channel.attr(LocalChannelRegistry.USER_ID_KEY).get();
                 log.info("用户 {} 心跳超时",userId);
                 ctx.close();
             } else if (e.state() == IdleState.WRITER_IDLE) {

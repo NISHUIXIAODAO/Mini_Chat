@@ -1,36 +1,32 @@
 package com.easychat.service.application;
 
-import cn.hutool.http.HttpRequest;
-import cn.hutool.json.JSONUtil;
+import com.easychat.config.ClusterNodeProperties;
 import com.easychat.entity.DTO.request.MessageSendDTO;
-import com.easychat.service.IRedisService;
-import com.easychat.webSocket.ChannelContextUtils;
+import com.easychat.entity.cluster.UserPresence;
+import com.easychat.service.cluster.InternalNodeClient;
+import com.easychat.service.cluster.UserPresenceService;
+import com.easychat.webSocket.LocalChannelRegistry;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.net.InetAddress;
-import java.util.concurrent.CompletableFuture;
-
 @Slf4j
 @Service
 public class MessagePushService {
+    private final UserPresenceService userPresenceService;
+    private final ClusterNodeProperties properties;
+    private final LocalChannelRegistry localChannelRegistry;
+    private final InternalNodeClient internalNodeClient;
 
-    private final IRedisService redisService;
-    private final ChannelContextUtils channelContextUtils;
-
-    @Value("${server.port:5050}")
-    private String serverPort;
-
-    private final String localIp;
-
-    public MessagePushService(IRedisService redisService,
-                              ChannelContextUtils channelContextUtils) {
-        this.redisService = redisService;
-        this.channelContextUtils = channelContextUtils;
-        this.localIp = resolveLocalIp();
+    public MessagePushService(UserPresenceService userPresenceService,
+                              ClusterNodeProperties properties,
+                              LocalChannelRegistry localChannelRegistry,
+                              InternalNodeClient internalNodeClient) {
+        this.userPresenceService = userPresenceService;
+        this.properties = properties;
+        this.localChannelRegistry = localChannelRegistry;
+        this.internalNodeClient = internalNodeClient;
     }
 
     public void pushToUserAfterCommit(final Integer userId, final MessageSendDTO<?> message) {
@@ -44,49 +40,22 @@ public class MessagePushService {
 
     public void pushToUser(Integer userId, MessageSendDTO<?> message) {
         try {
-            String targetAddress = redisService.getActiveUserLocation(userId);
-            log.info("准备推送消息给用户: {}, Redis记录地址: {}, 本机地址: {}:{}", userId, targetAddress, localIp, serverPort);
-
-            if (targetAddress == null) {
-                log.info("用户 {} 不在线 (Redis无位置记录)", userId);
-                return;
-            }
-
-            String[] parts = targetAddress.split(":");
-            String targetIp = parts[0];
-            String targetPort = parts.length > 1 ? parts[1] : "5050";
-
-            boolean isLocalIp = targetIp.equals(localIp) || targetIp.equals("127.0.0.1") || targetIp.equals("localhost");
-            boolean isLocalPort = targetPort.equals(serverPort);
-
-            if (isLocalIp && isLocalPort) {
-                log.info("目标用户在【本机】，直接通过WebSocket推送");
-                pushLocal(userId, message);
-                return;
-            }
-
-            final String url = "http://" + targetIp + ":" + targetPort + "/internal/push?userId=" + userId;
-            log.info("目标用户在【远程节点】({}:{}), 发起HTTP转发: {}", targetIp, targetPort, url);
-            CompletableFuture.runAsync(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        HttpRequest.post(url)
-                                .body(JSONUtil.toJsonStr(message))
-                                .timeout(2000)
-                                .execute();
-                    } catch (Exception e) {
-                        log.error("HTTP转发消息失败", e);
-                    }
+            UserPresence presence = userPresenceService.findActive(userId);
+            if (presence == null) {
+                // Redis presence 过期时仍保留本机活动 Channel 的单节点兼容性。
+                if (!localChannelRegistry.send(message, userId)) {
+                    log.info("用户 {} 不在线", userId);
                 }
-            });
+                return;
+            }
+            if (properties.getNodeId().equals(presence.getNodeId())) {
+                localChannelRegistry.send(message, userId);
+                return;
+            }
+            internalNodeClient.push(presence.getNodeId(), userId, message);
         } catch (Exception e) {
-            log.error("消息推送失败", e);
+            log.error("消息推送失败, userId={}", userId, e);
         }
-    }
-
-    private void pushLocal(Integer userId, MessageSendDTO<?> message) {
-        channelContextUtils.sendMsg(message, userId);
     }
 
     public void afterCommit(final Runnable action) {
@@ -104,13 +73,5 @@ public class MessagePushService {
                 }
             }
         });
-    }
-
-    private String resolveLocalIp() {
-        try {
-            return InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception e) {
-            return "127.0.0.1";
-        }
     }
 }

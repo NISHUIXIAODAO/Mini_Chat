@@ -2,10 +2,12 @@ package com.easychat.controller;
 
 import com.easychat.entity.DTO.request.LoginDTO;
 import com.easychat.entity.DTO.request.RegisterDTO;
+import com.easychat.entity.DTO.response.WebSocketTicketResponseDTO;
 import com.easychat.entity.ResultVo;
 import com.easychat.service.IJWTService;
 import com.easychat.service.IUserInfoService;
 import com.easychat.service.application.UserOnlineService;
+import com.easychat.service.auth.WebSocketConnectionTicketService;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -25,11 +27,15 @@ public class UserInfoController {
     private final IUserInfoService iUserInfoService;
     private final IJWTService jwtService;
     private final UserOnlineService userOnlineService;
+    private final WebSocketConnectionTicketService webSocketTicketService;
 
-    public UserInfoController(IUserInfoService iUserInfoService, IJWTService jwtService, UserOnlineService userOnlineService) {
+    public UserInfoController(IUserInfoService iUserInfoService, IJWTService jwtService,
+                              UserOnlineService userOnlineService,
+                              WebSocketConnectionTicketService webSocketTicketService) {
         this.iUserInfoService = iUserInfoService;
         this.jwtService = jwtService;
         this.userOnlineService = userOnlineService;
+        this.webSocketTicketService = webSocketTicketService;
     }
 
     @PostMapping("/login")
@@ -51,6 +57,17 @@ public class UserInfoController {
             userOnlineService.forceOffline(userId, "账号已退出登录");
         }
         return ResultVo.success("退出登录成功");
+    }
+
+    @PostMapping("/ws-ticket")
+    public ResultVo<WebSocketTicketResponseDTO> issueWebSocketTicket(HttpServletRequest request) {
+        String token = jwtService.extractToken(request);
+        Integer userId = jwtService.getUserId(token);
+        String sessionId = jwtService.getSessionId(token);
+        if (userId == null || sessionId == null) {
+            return ResultVo.unauthorized("登录状态已失效，请重新登录");
+        }
+        return ResultVo.success(webSocketTicketService.issue(userId, sessionId));
     }
 
     @PostMapping("/register")

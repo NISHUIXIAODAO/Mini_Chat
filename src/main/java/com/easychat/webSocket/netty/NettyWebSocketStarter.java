@@ -30,10 +30,13 @@ public class NettyWebSocketStarter {
 
     private final HandlerWebSocket handlerWebSocket;
     private final HandlerHeartBeat handlerHeartBeat;
+    private final WebSocketTicketAuthHandler webSocketTicketAuthHandler;
 
-    public NettyWebSocketStarter(HandlerWebSocket handlerWebSocket, HandlerHeartBeat handlerHeartBeat) {
+    public NettyWebSocketStarter(HandlerWebSocket handlerWebSocket, HandlerHeartBeat handlerHeartBeat,
+                                 WebSocketTicketAuthHandler webSocketTicketAuthHandler) {
         this.handlerWebSocket = handlerWebSocket;
         this.handlerHeartBeat = handlerHeartBeat;
+        this.webSocketTicketAuthHandler = webSocketTicketAuthHandler;
     }
 
     /***
@@ -61,9 +64,11 @@ public class NettyWebSocketStarter {
                                     //writerIdleTime:写超时事件，客户端一段时间内没有收到来自服务端的消息
                                     //allIdleTime：  所有类型的超时时间
                                     .addLast(new IdleStateHandler(75,0,0, TimeUnit.SECONDS))
-                                    //自定义 心跳超时处理器 HandlerHeartBeat
-                                    .addLast(handlerHeartBeat)
-                                    //将http协议升级为ws协议
+                                     //自定义 心跳超时处理器 HandlerHeartBeat
+                                     .addLast(handlerHeartBeat)
+                                     // Validate and consume the one-time ticket before the protocol handler upgrades to WebSocket.
+                                     .addLast(webSocketTicketAuthHandler)
+                                     //将http协议升级为ws协议
                                     .addLast(new WebSocketServerProtocolHandler("/ws",null,true,64 * 1024,true,true,10000L))
                                     .addLast(handlerWebSocket);
                         }

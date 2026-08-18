@@ -1,7 +1,8 @@
 package com.easychat.webSocket.netty;
 
-import com.easychat.service.IJWTService;
-import com.easychat.webSocket.ChannelContextUtils;
+import com.easychat.service.cluster.UserPresenceService;
+import com.easychat.webSocket.LocalChannelRegistry;
+import com.easychat.webSocket.WebSocketSessionInitializer;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -9,49 +10,24 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
-
-import java.net.InetAddress;
 
 
 @Slf4j
 @Component
 @ChannelHandler.Sharable
 public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketFrame> {
-    private final IJWTService jwtService;
-    private final ChannelContextUtils channelContextUtils;
-    private final Environment environment;
+    private final LocalChannelRegistry localChannelRegistry;
+    private final UserPresenceService userPresenceService;
+    private final WebSocketSessionInitializer webSocketSessionInitializer;
 
-    public HandlerWebSocket(IJWTService jwtService,
-                            ChannelContextUtils channelContextUtils,
-                            Environment environment) {
-        this.jwtService = jwtService;
-        this.channelContextUtils = channelContextUtils;
-        this.environment = environment;
+    public HandlerWebSocket(LocalChannelRegistry localChannelRegistry,
+                            UserPresenceService userPresenceService,
+                            WebSocketSessionInitializer webSocketSessionInitializer) {
+        this.localChannelRegistry = localChannelRegistry;
+        this.userPresenceService = userPresenceService;
+        this.webSocketSessionInitializer = webSocketSessionInitializer;
     }
-//
-//    private String serverIp;
-//    private String serverPort;
-//
-//    @PostConstruct
-//    public void init() {
-//        try {
-//            serverIp = InetAddress.getLocalHost().getHostAddress();
-//            // 优先读取 System Property (支持 -Dserver.port=xxxx)
-//            String sysPort = System.getProperty("server.port");
-//            if (sysPort != null && !sysPort.isEmpty()) {
-//                serverPort = sysPort;
-//            } else {
-//                serverPort = environment.getProperty("server.port", "5050");
-//            }
-//        } catch (Exception e) {
-//            serverIp = "127.0.0.1";
-//            serverPort = "5050";
-//            log.error("获取服务器IP失败", e);
-//        }
-//    }
-
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         log.error("WebSocket处理异常", cause); // 打印完整异常栈
@@ -67,78 +43,41 @@ public class HandlerWebSocket extends SimpleChannelInboundHandler<TextWebSocketF
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         log.info("有连接断开");
         Channel channel = ctx.channel();
-        channelContextUtils.removeContext(channel);
+        Integer userId = channel.attr(LocalChannelRegistry.USER_ID_KEY).get();
+        if (userId != null) {
+            userPresenceService.disconnect(userId, localChannelRegistry.getConnectionId(channel));
+        }
+        localChannelRegistry.remove(channel);
     }
 
     //通道就绪后，通道有连接就会触发，一般用于初始化
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame textWebSocketFrame) throws Exception {
         Channel channel = ctx.channel();
-        Integer userId = channel.attr(ChannelContextUtils.USER_ID_KEY).get();
-        log.info("服务器收到来自userId（发送人）为 {} 的消息：{}" , userId , textWebSocketFrame.text());
-        channelContextUtils.refreshContext(channel);
+        Integer userId = channel.attr(LocalChannelRegistry.USER_ID_KEY).get();
+        if (userId == null) {
+            log.warn("Closing WebSocket frame received before authentication");
+            ctx.close();
+            return;
+        }
+        log.debug("WebSocket frame received from authenticated user {}", userId);
+        userPresenceService.refresh(userId, localChannelRegistry.getConnectionId(channel));
     }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        //判断连接成功
-        log.info("evt:{}", evt);
-        /**
-         * evt 触发事件
-         * HandshakeComplete 表示客户端与服务器 websocket 握手连接成功
-         */
         if(evt instanceof WebSocketServerProtocolHandler.HandshakeComplete){
-            WebSocketServerProtocolHandler.HandshakeComplete complete = (WebSocketServerProtocolHandler.HandshakeComplete) evt;
-            String url = complete.requestUri();
-            log.info("Url:{}",url);
-            String token = getToken(url);
-            if (token == null || !jwtService.verifyToken(token)) {
-                log.info("token有误");
+            Integer userId = ctx.channel().attr(LocalChannelRegistry.USER_ID_KEY).get();
+            if (userId == null) {
+                log.warn("Closing WebSocket connection without authenticated channel context");
                 ctx.channel().close();
-                return ;
+                return;
             }
-            /**
-             * 建立用户自己的 channel 通过 addContext 方法 将用户 ID和管道绑定
-             */
-            Integer userId = jwtService.getUserId(token);
-            channelContextUtils.addContext(userId,ctx.channel());
-
-            String serverIp = InetAddress.getLocalHost().getHostAddress();
-            String serverPort = environment.getProperty("server.port");
-            // 注册用户位置信息到 Redis
-            String address = serverIp + ":" + serverPort + ":" + ctx.channel().id().asShortText();
-            channelContextUtils.saveConnectionLocation(ctx.channel(), address);
-            log.info("用户 {} 上线，注册位置信息: {}", userId, address);
-            
-            log.info("");
+            localChannelRegistry.register(userId, ctx.channel());
+            userPresenceService.connect(userId, localChannelRegistry.getConnectionId(ctx.channel()));
+            webSocketSessionInitializer.initialize(userId);
+            log.info("用户 {} 已在节点本地注册 WebSocket 连接", userId);
         }
-    }
-
-
-    /***
-     * 通过 url 拿到 token
-     * @param url
-     * @return
-     */
-    private String getToken(String url){
-        if(url.isEmpty() || url.indexOf("?") == -1){
-            return null;
-        }
-        //分割url中传的参数
-        String[] queryParams = url.split("\\?");
-        if (queryParams.length != 2){
-            return null;
-        }
-        
-        // 解析查询参数
-        String[] paramPairs = queryParams[1].split("&");
-        for (String pair : paramPairs) {
-            String[] keyValue = pair.split("=");
-            if (keyValue.length == 2 && "token".equals(keyValue[0])) {
-                return keyValue[1];
-            }
-        }
-        
-        return null;
+        ctx.fireUserEventTriggered(evt);
     }
 }

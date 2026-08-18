@@ -1,6 +1,7 @@
 package com.easychat.config;
 
 import com.easychat.interceptor.Interceptor;
+import com.easychat.interceptor.InternalAuthInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -12,9 +13,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class InterceptorConfig implements WebMvcConfigurer {
     private final Interceptor interceptor;
+    private final InternalAuthInterceptor internalAuthInterceptor;
 
-    public InterceptorConfig(Interceptor interceptor) {
+    public InterceptorConfig(Interceptor interceptor, InternalAuthInterceptor internalAuthInterceptor) {
         this.interceptor = interceptor;
+        this.internalAuthInterceptor = internalAuthInterceptor;
     }
 
     @Override
@@ -26,7 +29,7 @@ public class InterceptorConfig implements WebMvcConfigurer {
                         "/userInfo/register",
                         "/error",
                         "/userInfo/sendCode",
-                        "/internal/**", // 内部通信接口白名单
+                        "/internal/**",
                         "/*.html",
                         "/*.ico",
                         "/*.html",
@@ -37,6 +40,7 @@ public class InterceptorConfig implements WebMvcConfigurer {
                         "/webjars/js/**",
                         "/swagger-resources",
                         "/webjars/css/**");
+        registry.addInterceptor(internalAuthInterceptor).addPathPatterns("/internal/**");
     }
 
     @Override

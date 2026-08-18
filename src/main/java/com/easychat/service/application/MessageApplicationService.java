@@ -14,7 +14,7 @@ import com.easychat.mapper.ChatSessionUserMapper;
 import com.easychat.mapper.UserContactMapper;
 import com.easychat.mapper.UserInfoMapper;
 import com.easychat.service.IJWTService;
-import com.easychat.service.IRedisService;
+import com.easychat.service.cache.ContactCacheService;
 import com.easychat.utils.CopyTools;
 import com.easychat.utils.SessionIdUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -39,34 +40,37 @@ import static com.easychat.utils.ConstantUtils.cleanHtmlTag;
 public class MessageApplicationService {
 
     private final IJWTService jwtService;
-    private final IRedisService redisService;
+    private final ContactCacheService contactCacheService;
     private final UserContactMapper userContactMapper;
     private final UserInfoMapper userInfoMapper;
     private final ChatSessionMapper chatSessionMapper;
     private final ChatSessionUserMapper chatSessionUserMapper;
     private final ChatMessageMapper chatMessageMapper;
     private final ChatMessageUserStatusMapper chatMessageUserStatusMapper;
+    private final MessageOutboxService messageOutboxService;
     private final MessagePushService messagePushService;
     private final RobotChatService robotChatService;
 
     public MessageApplicationService(IJWTService jwtService,
-                                     IRedisService redisService,
+                                      ContactCacheService contactCacheService,
                                      UserContactMapper userContactMapper,
                                      UserInfoMapper userInfoMapper,
                                      ChatSessionMapper chatSessionMapper,
                                      ChatSessionUserMapper chatSessionUserMapper,
                                      ChatMessageMapper chatMessageMapper,
                                      ChatMessageUserStatusMapper chatMessageUserStatusMapper,
-                                     MessagePushService messagePushService,
+                                      MessageOutboxService messageOutboxService,
+                                      MessagePushService messagePushService,
                                      RobotChatService robotChatService) {
         this.jwtService = jwtService;
-        this.redisService = redisService;
+        this.contactCacheService = contactCacheService;
         this.userContactMapper = userContactMapper;
         this.userInfoMapper = userInfoMapper;
         this.chatSessionMapper = chatSessionMapper;
         this.chatSessionUserMapper = chatSessionUserMapper;
         this.chatMessageMapper = chatMessageMapper;
         this.chatMessageUserStatusMapper = chatMessageUserStatusMapper;
+        this.messageOutboxService = messageOutboxService;
         this.messagePushService = messagePushService;
         this.robotChatService = robotChatService;
     }
@@ -122,7 +126,8 @@ public class MessageApplicationService {
         createReceiverStatuses(userId, contactId, sessionId, contactType, chatMessage.getMessageId());
 
         MessageSendDTO messageSendDTO = CopyTools.copy(chatMessage);
-        pushMessageToReceiversAfterCommit(userId, contactId, sessionId, contactType, messageSendDTO);
+        List<Integer> targetUserIds = resolveTargetUserIds(userId, contactId, sessionId, contactType);
+        messageOutboxService.createChatMessage(chatMessage.getMessageId(), sessionId, targetUserIds, messageSendDTO);
 
         if (ROBOT_ID.equals(contactId)) {
             messagePushService.afterCommit(new Runnable() {
@@ -208,23 +213,19 @@ public class MessageApplicationService {
         }
     }
 
-    private void pushMessageToReceiversAfterCommit(Integer sendUserId,
-                                                   Integer contactId,
-                                                   String sessionId,
-                                                   Integer contactType,
-                                                   MessageSendDTO<?> messageSendDTO) {
+    private List<Integer> resolveTargetUserIds(Integer sendUserId,
+                                               Integer contactId,
+                                               String sessionId,
+                                               Integer contactType) {
         if (CONTACT_TYPE_FRIEND == contactType) {
-            messagePushService.pushToUserAfterCommit(contactId, messageSendDTO);
-            return;
+            return java.util.Collections.singletonList(contactId);
         }
         if (CONTACT_TYPE_GROUPS == contactType) {
-            List<Integer> memberIds = chatSessionUserMapper.getUserIdsBySessionId(sessionId);
-            for (Integer memberId : memberIds) {
-                if (!sendUserId.equals(memberId)) {
-                    messagePushService.pushToUserAfterCommit(memberId, messageSendDTO);
-                }
-            }
+            List<Integer> memberIds = new ArrayList<>(chatSessionUserMapper.getUserIdsBySessionId(sessionId));
+            memberIds.remove(sendUserId);
+            return memberIds;
         }
+        return java.util.Collections.emptyList();
     }
 
     private Integer getCurrentUserId(HttpServletRequest request) {
@@ -275,8 +276,8 @@ public class MessageApplicationService {
             return;
         }
 
-        List<Integer> friendIdList = redisService.getUserContactList(redisService.generateRedisKey(userId, CONTACT_TYPE_FRIEND));
-        List<Integer> groupIdList = redisService.getUserContactList(redisService.generateRedisKey(userId, CONTACT_TYPE_GROUPS));
+        List<Integer> friendIdList = contactCacheService.get(userId, CONTACT_TYPE_FRIEND);
+        List<Integer> groupIdList = contactCacheService.get(userId, CONTACT_TYPE_GROUPS);
         if (!friendIdList.contains(contactId) && !groupIdList.contains(contactId)) {
             throw new GlobalExceptionHandler.BusinessException(GlobalExceptionHandler.ErrorCode.CODE_UNEXIST);
         }
