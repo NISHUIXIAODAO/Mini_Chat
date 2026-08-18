@@ -8,6 +8,8 @@ import com.easychat.entity.DTO.request.RegisterDTO;
 import com.easychat.mapper.UserInfoMapper;
 import com.easychat.service.*;
 import com.easychat.service.application.UserOnlineService;
+import com.easychat.service.auth.VerificationCodeService;
+import com.easychat.service.cache.ContactCacheService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +25,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_FRIEND;
+import static com.easychat.utils.ConstantUtils.CONTACT_TYPE_GROUPS;
 import static com.easychat.utils.SessionIdUtils.md5;
 
 /**
@@ -42,7 +46,8 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     private final IUserEmailBloomService userEmailBloomService;
     private final JavaMailSender mailSender;
     private final IJWTService jwtService;
-    private final IRedisService redisService;
+    private final ContactCacheService contactCacheService;
+    private final VerificationCodeService verificationCodeService;
     private final IUserContactService userContactService;
     private final UserOnlineService userOnlineService;
 
@@ -83,17 +88,9 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         //查询联系人(朋友)
         List<Integer> friendIdList = userContactService.getFriendIdList(userId);
         List<Integer> groupIdList = userContactService.getGroupIdList(userId);
-        // 定义不同的键名来存储好友和群组 ID
-        String friendKey = "user:" + userId  + ":friends";
-        String groupKey = "user:" + userId  + ":groups";
-
-        //将联系人列表存入redis
-        if(!friendIdList.isEmpty()){
-            redisService.addUserContactBatch(friendKey,friendIdList);
-        }
-        if(!groupIdList.isEmpty()){
-            redisService.addUserContactBatch(groupKey,groupIdList);
-        }
+        // 替换而非追加，避免用户联系人变更后留下过期缓存。
+        contactCacheService.replace(userId, CONTACT_TYPE_FRIEND, friendIdList);
+        contactCacheService.replace(userId, CONTACT_TYPE_GROUPS, groupIdList);
 
         String nickName = userInfoMapper.getNickNameByUserId(userId);
         HashMap<String, Object> userInfo = new HashMap<>();
@@ -125,7 +122,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
             return ResultVo.failed("邮箱格式不正确");
         }
         //校验验证码
-        String code = redisService.verifyCode(registerDTO.getEmail());
+        String code = verificationCodeService.get(registerDTO.getEmail());
         if(code == null){
             return ResultVo.failed("验证码发送失败");
         }
@@ -177,7 +174,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         simpleMailMessage.setFrom("mamm127323@163.com");
         mailSender.send(simpleMailMessage);
         //将生成的code存到redis里  过期时间1分钟
-        redisService.setCode(email, code,1, TimeUnit.MINUTES);
+        verificationCodeService.save(email, code,1, TimeUnit.MINUTES);
 
         return ResultVo.success("发送成功");
     }

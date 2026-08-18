@@ -10,6 +10,7 @@ class WebSocketManager {
         this.heartbeatInterval = 30000; // 30秒发送一次心跳
         this.heartbeatTimer = null;
         this.connectionStatus = false;
+        this.connecting = false;
         
         // 回调函数注册
         this.callbacks = {
@@ -32,19 +33,23 @@ class WebSocketManager {
     }
 
     // 连接WebSocket
-    connect() {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+    async connect() {
+        if (this.connecting || (this.socket && this.socket.readyState === WebSocket.OPEN)) {
             console.log('WebSocket已连接，无需重新连接');
             return;
         }
-
-        // 获取WebSocket服务器地址
-        const wsPort = 5051; // 从application.properties中获取的ws.port值
-        const wsUrl = `ws://${window.location.hostname}:${wsPort}/ws?token=${this.token}`;
-        
+        this.connecting = true;
         try {
+            const ticket = await this._requestConnectionTicket();
+            const wsPort = 5051;
+            const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+            if (!isLocalHost && window.location.protocol !== 'https:') {
+                throw new Error('生产环境 WebSocket 必须通过 HTTPS/WSS 提供服务');
+            }
+            const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const params = new URLSearchParams({ ticket: ticket });
+            const wsUrl = `${wsScheme}://${window.location.hostname}:${wsPort}/ws?${params.toString()}`;
             this.socket = new WebSocket(wsUrl);
-            
             this.socket.onopen = this._handleOpen.bind(this);
             this.socket.onmessage = this._handleMessage.bind(this);
             this.socket.onclose = this._handleClose.bind(this);
@@ -53,7 +58,28 @@ class WebSocketManager {
             console.error('创建WebSocket连接失败:', error);
             this._triggerCallbacks('error', error);
             this._attemptReconnect();
+        } finally {
+            this.connecting = false;
         }
+    }
+
+    async _requestConnectionTicket() {
+        if (!this.token) {
+            throw new Error('缺少登录凭证');
+        }
+        const response = await fetch('/userInfo/ws-ticket', {
+            method: 'POST',
+            headers: { 'Authorization': this.token }
+        });
+        if (!response.ok) {
+            throw new Error('获取 WebSocket 连接票据失败');
+        }
+        const payload = await response.json();
+        const ticket = payload && payload.data && payload.data.ticket;
+        if (!ticket) {
+            throw new Error('WebSocket 连接票据无效');
+        }
+        return ticket;
     }
     
     // 处理连接打开事件

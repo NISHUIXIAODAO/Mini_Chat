@@ -21,10 +21,9 @@ import com.easychat.mapper.UserContactApplyMapper;
 import com.easychat.mapper.UserContactMapper;
 import com.easychat.mapper.UserInfoMapper;
 import com.easychat.service.IJWTService;
-import com.easychat.service.IRedisService;
+import com.easychat.service.cache.ContactCacheService;
 import com.easychat.service.domain.SessionDomainService;
 import com.easychat.utils.CopyTools;
-import com.easychat.webSocket.ChannelContextUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,9 +57,8 @@ public class ContactApplicationService {
     private final UserInfoMapper userInfoMapper;
     private final UserContactApplyMapper userContactApplyMapper;
     private final IJWTService jwtService;
-    private final IRedisService redisService;
+    private final ContactCacheService contactCacheService;
     private final GroupInfoMapper groupInfoMapper;
-    private final ChannelContextUtils channelContextUtils;
     private final SessionDomainService sessionDomainService;
     private final MessagePushService messagePushService;
 
@@ -70,9 +68,8 @@ public class ContactApplicationService {
                                      UserInfoMapper userInfoMapper,
                                      UserContactApplyMapper userContactApplyMapper,
                                      IJWTService jwtService,
-                                     IRedisService redisService,
+                                      ContactCacheService contactCacheService,
                                      GroupInfoMapper groupInfoMapper,
-                                     ChannelContextUtils channelContextUtils,
                                      SessionDomainService sessionDomainService,
                                      MessagePushService messagePushService) {
         this.userContactMapper = userContactMapper;
@@ -81,9 +78,8 @@ public class ContactApplicationService {
         this.userInfoMapper = userInfoMapper;
         this.userContactApplyMapper = userContactApplyMapper;
         this.jwtService = jwtService;
-        this.redisService = redisService;
+        this.contactCacheService = contactCacheService;
         this.groupInfoMapper = groupInfoMapper;
-        this.channelContextUtils = channelContextUtils;
         this.sessionDomainService = sessionDomainService;
         this.messagePushService = messagePushService;
     }
@@ -328,7 +324,7 @@ public class ContactApplicationService {
         messagePushService.afterCommit(new Runnable() {
             @Override
             public void run() {
-                redisService.addUserContact(redisService.generateRedisKey(applyUserId, CONTACT_TYPE_GROUPS), groupInfo.getGroupId());
+                contactCacheService.add(applyUserId, CONTACT_TYPE_GROUPS, groupInfo.getGroupId());
                 messagePushService.pushToUser(applyUserId, messageSendDTO);
             }
         });
@@ -401,10 +397,8 @@ public class ContactApplicationService {
     }
 
     private void syncFriendContactCache(Integer applyUserId, Integer receiveUserId) {
-        String receiveUserKey = redisService.generateRedisKey(receiveUserId, CONTACT_TYPE_FRIEND);
-        String applyUserKey = redisService.generateRedisKey(applyUserId, CONTACT_TYPE_FRIEND);
-        redisService.addUserContact(receiveUserKey, applyUserId);
-        redisService.addUserContact(applyUserKey, receiveUserId);
+        contactCacheService.add(receiveUserId, CONTACT_TYPE_FRIEND, applyUserId);
+        contactCacheService.add(applyUserId, CONTACT_TYPE_FRIEND, receiveUserId);
     }
 
     private void sendFriendAgreeMessage(ChatMessage chatMessage, Integer applyUserId, Integer receiveUserId) {

@@ -21,7 +21,11 @@ public class CopyTools {
                 .setSendUserNickName(chatMessage.getSendUserNickName())
                 .setContactId(chatMessage.getContactId())
                 .setSendTime(chatMessage.getSendTime())
-                .setContactType(chatMessage.getContactType());
+                .setContactType(chatMessage.getContactType())
+                .setStatus(chatMessage.getStatus())
+                .setFileName(chatMessage.getFileName())
+                .setFileSize(chatMessage.getFileSize())
+                .setFileType(chatMessage.getFileType());
         return messageSendDTO;
     }
 

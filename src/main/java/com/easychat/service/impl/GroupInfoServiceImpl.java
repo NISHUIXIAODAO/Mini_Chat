@@ -9,10 +9,9 @@ import com.easychat.mapper.*;
 import com.easychat.service.IGroupInfoService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.easychat.service.IJWTService;
-import com.easychat.service.IRedisService;
+import com.easychat.service.cache.ContactCacheService;
 import com.easychat.service.application.MessagePushService;
 import com.easychat.utils.CopyTools;
-import com.easychat.webSocket.ChannelContextUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,8 +41,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
     private final UserContactMapper userContactMapper;
     private final ChatSessionMapper chatSessionMapper;
     private final ChatSessionUserMapper chatSessionUserMapper;
-    private final IRedisService redisService;
-    private final ChannelContextUtils channelContextUtils;
+    private final ContactCacheService contactCacheService;
     private final ChatMessageMapper chatMessageMapper;
     private final MessagePushService messagePushService;
     private final GroupInfoMapper groupInfoMapper;
@@ -118,7 +116,7 @@ public class GroupInfoServiceImpl extends ServiceImpl<GroupInfoMapper, GroupInfo
         chatMessageMapper.insert(chatMassage);
 
         //将新建群组联系人加入redis中
-        redisService.addUserContact(redisService.generateRedisKey(groupInfo.getGroupOwnerId() , CONTACT_TYPE_GROUPS) ,groupInfo.getGroupId());
+        contactCacheService.add(groupInfo.getGroupOwnerId(), CONTACT_TYPE_GROUPS, groupInfo.getGroupId());
 
         //发送ws消息
         chatSessionUser.setLastMessage(GROUP_CREATE.getInitMessage());

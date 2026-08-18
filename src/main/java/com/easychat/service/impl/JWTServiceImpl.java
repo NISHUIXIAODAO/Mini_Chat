@@ -3,7 +3,7 @@ package com.easychat.service.impl;
 import com.easychat.entity.DO.UserInfo;
 import com.easychat.mapper.UserInfoMapper;
 import com.easychat.service.IJWTService;
-import com.easychat.service.IRedisService;
+import com.easychat.service.auth.AuthSessionService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 public class JWTServiceImpl implements IJWTService {
     private final UserInfoMapper userInfoMapper;
     private final RedisTemplate<String, Object> redisTemplate;
-    private final IRedisService redisService;
+    private final AuthSessionService authSessionService;
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -37,10 +37,10 @@ public class JWTServiceImpl implements IJWTService {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String TOKEN_BLACKLIST_PREFIX = "jwt:blacklist:";
 
-    public JWTServiceImpl(UserInfoMapper userInfoMapper, RedisTemplate<String, Object> redisTemplate, IRedisService redisService) {
+    public JWTServiceImpl(UserInfoMapper userInfoMapper, RedisTemplate<String, Object> redisTemplate, AuthSessionService authSessionService) {
         this.userInfoMapper = userInfoMapper;
         this.redisTemplate = redisTemplate;
-        this.redisService = redisService;
+        this.authSessionService = authSessionService;
     }
 
     /***
@@ -60,7 +60,7 @@ public class JWTServiceImpl implements IJWTService {
                 .setExpiration(new Date(System.currentTimeMillis() + expirationMillis))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)//签名算法
                 .compact();
-        redisService.saveAuthSession(userId, sessionId, expirationMillis);
+        authSessionService.save(userId, sessionId, expirationMillis);
         return jwt;
     }
 
@@ -161,7 +161,7 @@ public class JWTServiceImpl implements IJWTService {
             return false;
         }
         String sessionId = getSessionId(token);
-        if (!redisService.isCurrentAuthSession(userId, sessionId)) {
+        if (!authSessionService.isCurrent(userId, sessionId)) {
             return false;
         }
         //查询用户是否存在数据库中
@@ -212,7 +212,7 @@ public class JWTServiceImpl implements IJWTService {
         }
         Integer userId = getUserId(token);
         String sessionId = getSessionId(token);
-        redisService.removeAuthSession(userId, sessionId);
+        authSessionService.removeIfCurrent(userId, sessionId);
     }
 
     private boolean isBlacklisted(String token) {

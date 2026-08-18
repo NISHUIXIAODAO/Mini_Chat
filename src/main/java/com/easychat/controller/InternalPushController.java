@@ -2,7 +2,7 @@ package com.easychat.controller;
 
 import com.easychat.entity.DTO.request.MessageSendDTO;
 import com.easychat.entity.ResultVo;
-import com.easychat.webSocket.ChannelContextUtils;
+import com.easychat.webSocket.LocalChannelRegistry;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,10 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/internal")
 public class InternalPushController {
 
-    private final ChannelContextUtils channelContextUtils;
+    private final LocalChannelRegistry localChannelRegistry;
 
-    public InternalPushController(ChannelContextUtils channelContextUtils) {
-        this.channelContextUtils = channelContextUtils;
+    public InternalPushController(LocalChannelRegistry localChannelRegistry) {
+        this.localChannelRegistry = localChannelRegistry;
     }
 
     @PostMapping("/push")
@@ -29,7 +29,7 @@ public class InternalPushController {
         if (userId == null) {
             return ResultVo.failed("userId is required for internal precise push");
         }
-        channelContextUtils.sendMsg(message, userId);
+        localChannelRegistry.send(message, userId);
         return ResultVo.success("Pushed to local user");
     }
 
@@ -39,7 +39,7 @@ public class InternalPushController {
         if (userId == null) {
             return ResultVo.failed("userId is required for internal offline");
         }
-        channelContextUtils.forceOffline(userId, reason);
+        localChannelRegistry.forceOffline(userId, reason);
         return ResultVo.success("Forced local user offline");
     }
 }
